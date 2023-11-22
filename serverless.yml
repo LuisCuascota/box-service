@@ -1,0 +1,114 @@
+org: santiagocuascota
+app: box-service
+service: box-service
+frameworkVersion: "3"
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-typescript
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  vpc:
+    securityGroupIds:
+      - sg-0fdd86a256f4db29d
+    subnetIds:
+      - subnet-0480a5df6ab36a815
+      - subnet-0c3dc620268804efb
+      - subnet-005e3c98b41947c53
+      - subnet-0643619c4c87a1462
+      - subnet-088b5d5c178183fe9
+      - subnet-0f05d623d93de9249
+
+functions:
+  getPersons:
+    handler: src/handler/PersonHandler.find
+    events:
+      - http:
+          path: api/v1/person
+          method: GET
+  getEntryCount:
+    handler: src/handler/EntryHandler.count
+    events:
+      - http:
+          path: api/v1/entry/count
+          method: GET
+  getLoanCount:
+    handler: src/handler/LoanHandler.count
+    events:
+      - http:
+          path: api/v1/loan/count
+          method: GET
+  getEntryTypes:
+    handler: src/handler/EntryHandler.types
+    events:
+      - http:
+          path: api/v1/entry/types
+          method: GET
+  getEntryAmounts:
+    handler: src/handler/EntryHandler.amounts
+    events:
+      - http:
+          path: api/v1/entry/amounts/{account}
+          method: GET
+  postNewEntry:
+    handler: src/handler/EntryHandler.entry
+    events:
+      - http:
+          path: api/v1/entry
+          method: POST
+  searchEntries:
+    handler: src/handler/EntryHandler.search
+    events:
+      - http:
+          path: api/v1/entry
+          method: GET
+  getEntryDetail:
+    handler: src/handler/EntryHandler.detail
+    events:
+      - http:
+          path: api/v1/entry/detail/{number}
+          method: GET
+  postNewLoan:
+    handler: src/handler/LoanHandler.loan
+    events:
+      - http:
+          path: api/v1/loan
+          method: POST
+  searchLoans:
+    handler: src/handler/LoanHandler.search
+    events:
+      - http:
+          path: api/v1/loan
+          method: GET
+  getLoanDetail:
+    handler: src/handler/LoanHandler.detail
+    events:
+      - http:
+          path: api/v1/loan/detail/{number}
+          method: GET
+  getEgressCount:
+    handler: src/handler/EgressHandler.count
+    events:
+      - http:
+          path: api/v1/egress/count
+          method: GET
+  postNewEgress:
+    handler: src/handler/EgressHandler.egress
+    events:
+      - http:
+          path: api/v1/egress
+          method: POST
+  searchEgress:
+    handler: src/handler/EgressHandler.search
+    events:
+      - http:
+          path: api/v1/egress
+          method: GET
+  getEgressDetail:
+    handler: src/handler/EgressHandler.detail
+    events:
+      - http:
+          path: api/v1/egress/detail/{number}
+          method: GET
