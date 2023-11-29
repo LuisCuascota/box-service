@@ -5,4 +5,5 @@ export enum EntryTypesIdEnum {
   LOAN_CONTRIBUTION_PENALTY = 5,
   LOAN_INTEREST = 4,
   STRATEGIC_FUND = 9,
+  ADMINISTRATION_FUND = 1,
 }

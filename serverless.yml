@@ -28,6 +28,30 @@ functions:
       - http:
           path: api/v1/person
           method: GET
+  getPersonsCount:
+    handler: src/handler/PersonHandler.count
+    events:
+      - http:
+          path: api/v1/person/count
+          method: GET
+  postNewPerson:
+    handler: src/handler/PersonHandler.person
+    events:
+      - http:
+          path: api/v1/person
+          method: POST
+  putPerson:
+    handler: src/handler/PersonHandler.update
+    events:
+      - http:
+          path: api/v1/person/{dni}
+          method: PUT
+  deletePerson:
+    handler: src/handler/PersonHandler.disable
+    events:
+      - http:
+          path: api/v1/person/{account}
+          method: DELETE
   getEntryCount:
     handler: src/handler/EntryHandler.count
     events:

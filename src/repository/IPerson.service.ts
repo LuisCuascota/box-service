@@ -1,13 +1,24 @@
 import { Observable } from "rxjs";
-import { TColAccount, TColPerson } from "../infraestructure/Tables.enum";
 
 export interface IPersonService {
-  getPersons(): Observable<Person[]>;
+  getPersons(params?: PersonPagination): Observable<Person[]>;
+  getPersonsCount(): Observable<number>;
+  postNewPerson(person: Person): Observable<boolean>;
+  updatePerson(dni: string, person: Person): Observable<boolean>;
+  deletePerson(account: number): Observable<boolean>;
 }
 
 export interface Person {
-  [TColAccount.NUMBER]: number;
-  [TColAccount.DNI]: string;
-  [TColPerson.NAMES]: string;
-  [TColPerson.SURNAMES]: string;
+  number?: number;
+  dni: string;
+  names: string;
+  surnames: string;
+  phone: string;
+  birth_day: string;
+  address: string;
+}
+
+export interface PersonPagination {
+  limit: number;
+  offset: number;
 }

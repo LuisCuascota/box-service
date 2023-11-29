@@ -14,11 +14,15 @@ export enum TColPerson {
   NAMES = "names",
   SURNAMES = "surnames",
   DNI = "dni",
+  BIRTH_DAY = "birth_day",
+  ADDRESS = "address",
+  PHONE = "phone",
 }
 
 export enum TColAccount {
   NUMBER = "number",
   DNI = "dni",
+  IS_DISABLED = "is_disabled",
 }
 
 export enum TColEntryType {

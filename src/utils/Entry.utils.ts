@@ -4,11 +4,15 @@ import { EntryAmount } from "../repository/IEntry.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import { Loan, LoanDetail } from "../repository/ILoan.service";
 
-const calculateTotalContribution = (): number => {
+const getMonthsContribution = (): number => {
   const startDate = moment(BoxConfig.startDate);
   //TODO: Reducir el month, solo pruebas
   const currentDate = moment(); //.add(1, "M");
-  const monthsContribution = currentDate.diff(startDate, "months");
+
+  return currentDate.diff(startDate, "months");
+};
+const calculateTotalContribution = (): number => {
+  const monthsContribution = getMonthsContribution();
 
   return (
     BoxConfig.startAmount + monthsContribution * BoxConfig.contributionAmount
@@ -34,16 +38,28 @@ export const calculateContributionAmount = (
       id: EntryTypesIdEnum.CONTRIBUTION,
       value: contributionsToPay * BoxConfig.contributionAmount,
     });
-    entryAmounts.push({
-      id: EntryTypesIdEnum.STRATEGIC_FUND,
-      value: contributionsToPay * BoxConfig.strategicFund,
-    });
 
-    if (contributionsToPay >= 2)
+    if (dbContribution === null) {
       entryAmounts.push({
-        id: EntryTypesIdEnum.CONTRIBUTION_PENALTY,
-        value: (contributionsToPay - 1) * BoxConfig.contributionPenalty,
+        id: EntryTypesIdEnum.ADMINISTRATION_FUND,
+        value: 10,
       });
+      entryAmounts.push({
+        id: EntryTypesIdEnum.STRATEGIC_FUND,
+        value: 5 + getMonthsContribution() * BoxConfig.strategicFund,
+      });
+    } else {
+      entryAmounts.push({
+        id: EntryTypesIdEnum.STRATEGIC_FUND,
+        value: contributionsToPay * BoxConfig.strategicFund,
+      });
+
+      if (contributionsToPay >= 2)
+        entryAmounts.push({
+          id: EntryTypesIdEnum.CONTRIBUTION_PENALTY,
+          value: (contributionsToPay - 1) * BoxConfig.contributionPenalty,
+        });
+    }
   }
 
   return entryAmounts;
