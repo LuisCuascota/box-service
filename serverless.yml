@@ -136,3 +136,15 @@ functions:
       - http:
           path: api/v1/egress/detail/{number}
           method: GET
+  getMetrics:
+    handler: src/handler/MetricsHandler.metrics
+    events:
+      - http:
+          path: api/v1/metrics
+          method: GET
+  getTypesMetrics:
+    handler: src/handler/MetricsHandler.types
+    events:
+      - http:
+          path: api/v1/metrics/types
+          method: GET

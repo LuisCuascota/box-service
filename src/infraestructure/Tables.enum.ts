@@ -81,6 +81,7 @@ export enum TColEgressDetail {
 export enum AliasEnum {
   COUNT = "count",
   TOTAL = "total",
+  SUM = "sum",
 }
 
 export const buildCol = (

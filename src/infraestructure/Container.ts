@@ -11,6 +11,8 @@ import { ILoanService } from "../repository/ILoan.service";
 import { LoanService } from "../service/Loan.service";
 import { IEgressService } from "../repository/IEgress.service";
 import { EgressService } from "../service/Egress.service";
+import { IMetricsService } from "../repository/IMetrics.service";
+import { MetricsService } from "../service/Metrics.service";
 
 const CONTAINER: Container = new Container();
 
@@ -19,6 +21,7 @@ CONTAINER.bind<IPersonService>(IDENTIFIERS.PersonService).to(PersonService);
 CONTAINER.bind<IEntryService>(IDENTIFIERS.EntryService).to(EntryService);
 CONTAINER.bind<ILoanService>(IDENTIFIERS.LoanService).to(LoanService);
 CONTAINER.bind<IEgressService>(IDENTIFIERS.EgressService).to(EgressService);
+CONTAINER.bind<IMetricsService>(IDENTIFIERS.MetricsService).to(MetricsService);
 
 //Gateways
 CONTAINER.bind<IMySQLGateway>(IDENTIFIERS.MySQLGateway).to(MySQLGateway);
