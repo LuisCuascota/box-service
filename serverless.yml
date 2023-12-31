@@ -12,15 +12,25 @@ provider:
   runtime: nodejs18.x
   vpc:
     securityGroupIds:
-      - sg-0fdd86a256f4db29d
+      - sg-0b18df528939b513e
     subnetIds:
-      - subnet-0480a5df6ab36a815
-      - subnet-0c3dc620268804efb
-      - subnet-005e3c98b41947c53
-      - subnet-0643619c4c87a1462
-      - subnet-088b5d5c178183fe9
-      - subnet-0f05d623d93de9249
-
+      - subnet-03cfc516daa70a160
+      - subnet-0329950a05f7caf69
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - ssm:GetParameter
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - cognito-identity:GetOpenIdConfiguration
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - cognito-idp:DescribeUserPool
+      Resource: "*"
+  environment:
+    DB_DATA: ${ssm:/DB-CREDENTIALS}
 functions:
   getPersons:
     handler: src/handler/PersonHandler.find
@@ -28,123 +38,208 @@ functions:
       - http:
           path: api/v1/person
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getPersonsCount:
     handler: src/handler/PersonHandler.count
     events:
       - http:
           path: api/v1/person/count
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   postNewPerson:
     handler: src/handler/PersonHandler.person
     events:
       - http:
           path: api/v1/person
           method: POST
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   putPerson:
     handler: src/handler/PersonHandler.update
     events:
       - http:
-          path: api/v1/person/{dni}
+          path: api/v1/person/{account}
           method: PUT
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   deletePerson:
     handler: src/handler/PersonHandler.disable
     events:
       - http:
           path: api/v1/person/{account}
           method: DELETE
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEntryCount:
     handler: src/handler/EntryHandler.count
     events:
       - http:
           path: api/v1/entry/count
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getLoanCount:
     handler: src/handler/LoanHandler.count
     events:
       - http:
           path: api/v1/loan/count
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEntryTypes:
     handler: src/handler/EntryHandler.types
     events:
       - http:
           path: api/v1/entry/types
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEntryAmounts:
     handler: src/handler/EntryHandler.amounts
     events:
       - http:
           path: api/v1/entry/amounts/{account}
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   postNewEntry:
     handler: src/handler/EntryHandler.entry
     events:
       - http:
           path: api/v1/entry
           method: POST
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   searchEntries:
     handler: src/handler/EntryHandler.search
     events:
       - http:
           path: api/v1/entry
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEntryDetail:
     handler: src/handler/EntryHandler.detail
     events:
       - http:
           path: api/v1/entry/detail/{number}
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   postNewLoan:
     handler: src/handler/LoanHandler.loan
     events:
       - http:
           path: api/v1/loan
           method: POST
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   searchLoans:
     handler: src/handler/LoanHandler.search
     events:
       - http:
           path: api/v1/loan
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getLoanDetail:
     handler: src/handler/LoanHandler.detail
     events:
       - http:
           path: api/v1/loan/detail/{number}
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEgressCount:
     handler: src/handler/EgressHandler.count
     events:
       - http:
           path: api/v1/egress/count
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   postNewEgress:
     handler: src/handler/EgressHandler.egress
     events:
       - http:
           path: api/v1/egress
           method: POST
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   searchEgress:
     handler: src/handler/EgressHandler.search
     events:
       - http:
           path: api/v1/egress
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getEgressDetail:
     handler: src/handler/EgressHandler.detail
     events:
       - http:
           path: api/v1/egress/detail/{number}
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   getMetrics:
     handler: src/handler/MetricsHandler.metrics
     events:
       - http:
           path: api/v1/metrics
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
+    timeout: 20
   getTypesMetrics:
     handler: src/handler/MetricsHandler.types
     events:
       - http:
           path: api/v1/metrics/types
           method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization

@@ -1,7 +1,7 @@
 import { inject, injectable } from "inversify";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { forkJoin, from, iif, map, mergeMap, Observable, of, tap } from "rxjs";
+import { forkJoin, from, iif, map, mergeMap, Observable, of } from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
@@ -187,7 +187,6 @@ export class EntryService implements IEntryService {
             .toQuery()
         )
       ),
-      tap((query: string) => console.log(query)),
       mergeMap((query: string) => this._mysql.query<EntryDetail>(query)),
       tag("EntryService | getEntryDetail")
     );

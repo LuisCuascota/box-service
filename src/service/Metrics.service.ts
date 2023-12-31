@@ -11,6 +11,7 @@ import {
   TColEgress,
   TColEntry,
   TColEntryType,
+  TColLoanDetail,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import {
@@ -36,10 +37,12 @@ export class MetricsService implements IMetricsService {
           this._getTotalAmountByParams(TablesEnum.EGRESS, true),
           this._getTotalAmountByParams(TablesEnum.ENTRY, false),
           this._getTotalAmountByParams(TablesEnum.EGRESS, false),
+          this._getTotalLoanDispatched(),
         ])
       ),
       map(
-        ([entryTransfer, egressTransfer, entryCash, egressCash]: [
+        ([entryTransfer, egressTransfer, entryCash, egressCash, totalLoan]: [
+          number,
           number,
           number,
           number,
@@ -52,6 +55,7 @@ export class MetricsService implements IMetricsService {
           ).toFixed(2),
           cashTotal: +(entryCash - egressCash).toFixed(2),
           transferTotal: +(entryTransfer - egressTransfer).toFixed(2),
+          loanTotalDispatched: +totalLoan.toFixed(2),
         })
       ),
       tag("MetricsService | getMetrics")
@@ -105,6 +109,23 @@ export class MetricsService implements IMetricsService {
     );
   }
 
+  private _getTotalLoanDispatched(): Observable<number> {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .sum(buildCol({ l: TColLoanDetail.FEE_VALUE }, AliasEnum.SUM))
+            .from({ l: TablesEnum.LOAN_DETAIL })
+            .where(buildCol({ l: TColLoanDetail.IS_PAID }), false)
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query<Sum>(query)),
+      map((response: Sum[]) => response[0][AliasEnum.SUM]),
+      tag("MetricsService | _getTotalAmountByParams")
+    );
+  }
+
   private _getTotalTypeByParams(
     table: TablesEnum,
     column: string
@@ -129,7 +150,7 @@ export class MetricsService implements IMetricsService {
         )
       ),
       mergeMap((query: string) => this._mysql.query<TypeMetric>(query)),
-      tag("MetricsService | _getTotalAmountByParams")
+      tag("MetricsService | _getTotalTypeByParams")
     );
   }
 }

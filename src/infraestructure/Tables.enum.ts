@@ -61,6 +61,7 @@ export enum TColLoanDetail {
   LOAN_NUMBER = "loan_number",
   FEE_NUMBER = "fee_number",
   ENTRY_NUMBER = "entry_number",
+  FEE_VALUE = "fee_value",
 }
 
 export enum TColEgress {

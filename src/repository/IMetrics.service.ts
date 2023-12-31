@@ -10,6 +10,7 @@ export interface Metrics {
   total: number;
   cashTotal: number;
   transferTotal: number;
+  loanTotalDispatched: number;
 }
 
 export interface TypeMetric {
