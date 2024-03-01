@@ -2,67 +2,36 @@ import "reflect-metadata";
 import { Handler } from "aws-lambda";
 import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { IEgressService } from "../repository/IEgress.service";
-import { verifyAuthJwt } from "../utils/Verifier.utils";
+import {
+  EgressDetail,
+  EgressHeader,
+  IEgressService,
+} from "../repository/IEgress.service";
+import { processResponse } from "../utils/Verifier.utils";
 
 const egressService = CONTAINER.get<IEgressService>(IDENTIFIERS.EgressService);
 
-export const count: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
+export const count: Handler = (event) => {
+  return processResponse<number>(egressService.getEgressCount(), event);
+};
 
-  verifyAuthJwt(
-    token,
-    () =>
-      egressService.getEgressCount().subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const egress: Handler = (event) => {
+  return processResponse<boolean>(
+    egressService.postNewEgress(JSON.parse(event.body)),
+    event
   );
 };
 
-export const egress: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      egressService.postNewEgress(JSON.parse(event.body)).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const search: Handler = (event) => {
+  return processResponse<EgressHeader[]>(
+    egressService.searchEgress(event.queryStringParameters),
+    event
   );
 };
 
-export const search: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      egressService.searchEgress(event.queryStringParameters).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
-  );
-};
-
-export const detail: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      egressService.getEgressDetail(event.pathParameters.number).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const detail: Handler = (event) => {
+  return processResponse<EgressDetail[]>(
+    egressService.getEgressDetail(event.pathParameters.number),
+    event
   );
 };

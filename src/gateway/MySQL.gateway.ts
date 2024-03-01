@@ -3,6 +3,7 @@ import { finalize, from, Observable, of } from "rxjs";
 import { mergeMap } from "rxjs/operators";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { Connection, createConnection } from "promise-mysql";
+import { DBConfigEnvDev } from "../environment/DBConfig.env.dev";
 
 @injectable()
 export class MySQLGateway implements IMySQLGateway {
@@ -19,7 +20,8 @@ export class MySQLGateway implements IMySQLGateway {
   private async _getDBConfig() {
     const envConfig = process.env.DB_DATA ? process.env.DB_DATA : "{}";
 
-    return JSON.parse(envConfig);
+    //return JSON.parse(envConfig);
+    return DBConfigEnvDev;
   }
 
   private _executeQuery<T>(

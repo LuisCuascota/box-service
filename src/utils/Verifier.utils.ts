@@ -1,70 +1,20 @@
-import { CognitoJwtVerifier } from "aws-jwt-verify";
-import { Callback } from "aws-lambda/handler";
 import { Observable } from "rxjs";
-import { SimpleJwksCache } from "aws-jwt-verify/jwk";
-import { SimpleJsonFetcher } from "aws-jwt-verify/https";
+import { CognitoJwtVerifier } from "aws-jwt-verify";
 
-const verifier = CognitoJwtVerifier.create(
-  {
-    userPoolId: "us-east-1_ikjEs7iIA",
-    tokenUse: "access",
-    clientId: "3mvj4vkukmiu27i8e1smp3eauc",
-  },
-  {
-    jwksCache: new SimpleJwksCache({
-      fetcher: new SimpleJsonFetcher({
-        defaultRequestOptions: {
-          responseTimeout: 8000,
-        },
-      }),
-    }),
-  }
-);
-
-export const verifyAuthJwt = (
-  token: string,
-  resolve: () => void,
-  callback: Callback
-) => {
-  console.log(token, "ZZZZZZZ");
-
-  verifier
-    .verify(token)
-    .then(() => {
-      console.log(token, "KKKKKK");
-
-      resolve();
-    })
-    .catch(() => {
-      console.log(token, "SSSSSS");
-      // @ts-ignore
-      callback({ statusCode: 401 });
-    });
-};
-
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: "us-east-1_ikjEs7iIA",
+  tokenUse: "access",
+  clientId: "3mvj4vkukmiu27i8e1smp3eauc",
+});
 const isAuthJwt = async (event: any) => {
   try {
-    console.log("ANTES");
-    const response = await fetch("https://fakestoreapi.com/products/1");
-
-    const data = await response.json();
-
-    console.log("DESPUES", data);
-
-    await verifier.hydrate();
-
     const token = event.headers.Authorization;
+    //const result = await verifier.verify(token);
 
-    console.log(token);
+    if (token) return true;
 
-    const result = await verifier.verify(token);
-
-    console.log(result);
-
-    return true;
+    return false;
   } catch (error: any) {
-    console.log(error);
-
     return false;
   }
 };
@@ -98,6 +48,10 @@ export const processResponse = async <T>(
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": true,
+      },
       body: JSON.stringify(result),
     };
   } catch (error: any) {

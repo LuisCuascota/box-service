@@ -1,14 +1,23 @@
 import { inject, injectable } from "inversify";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { from, iif, map, mergeMap, Observable, of } from "rxjs";
+import {
+  concatMap,
+  from,
+  iif,
+  last,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  switchMap,
+} from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
   buildCol,
   TablesEnum,
   TColAccount,
-  TColEntry,
   TColLoan,
   TColLoanDetail,
   TColPerson,
@@ -22,7 +31,7 @@ import {
   LoanDetailToPay,
   LoanPagination,
 } from "../repository/ILoan.service";
-import { Counter, EntryHeader } from "../repository/IEntry.service";
+import { Counter } from "../repository/IEntry.service";
 import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
@@ -127,8 +136,8 @@ export class LoanService implements ILoanService {
 
   public postNewLoan(newLoan: LoanDefinition): Observable<boolean> {
     return of(1).pipe(
-      mergeMap(() => this._saveLoanHead(newLoan.loan)),
-      mergeMap(() => this._saveLoanDetail(newLoan.loanDetails)),
+      concatMap(() => this._saveLoanHead(newLoan.loan)),
+      concatMap(() => this._saveLoanDetail(newLoan.loanDetails)),
       map(() => true),
       tag("LoanService | postNewLoan")
     );
@@ -193,12 +202,13 @@ export class LoanService implements ILoanService {
   };
 
   private _saveLoanDetail = (details: LoanDetail[]) => {
-    return from(details).pipe(
+    return of(1).pipe(
+      switchMap(() => from(details)),
       mergeMap((detail: LoanDetail) =>
         of(this._knex.insert(detail).into(TablesEnum.LOAN_DETAIL).toQuery())
       ),
       mergeMap((query: string) => this._mysql.query(query)),
-      map(() => true),
+      last(),
       tag("LoanService | _saveLoanDetail")
     );
   };

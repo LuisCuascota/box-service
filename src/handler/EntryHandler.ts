@@ -2,97 +2,49 @@ import "reflect-metadata";
 import { Handler } from "aws-lambda";
 import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { IEntryService } from "../repository/IEntry.service";
-import { verifyAuthJwt } from "../utils/Verifier.utils";
+import {
+  EntryAmount,
+  EntryDetail,
+  EntryHeader,
+  EntryType,
+  IEntryService,
+} from "../repository/IEntry.service";
+import { processResponse } from "../utils/Verifier.utils";
 
 const entryService = CONTAINER.get<IEntryService>(IDENTIFIERS.EntryService);
 
-export const count: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
+export const count: Handler = (event) => {
+  return processResponse<number>(entryService.getEntryCount(), event);
+};
 
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.getEntryCount().subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const types: Handler = (event) => {
+  return processResponse<EntryType[]>(entryService.getEntryTypes(), event);
+};
+
+export const amounts: Handler = (event) => {
+  return processResponse<EntryAmount[]>(
+    entryService.getEntryAmounts(event.pathParameters.account),
+    event
   );
 };
 
-export const types: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.getEntryTypes().subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const entry: Handler = (event) => {
+  return processResponse<boolean>(
+    entryService.postNewEntry(JSON.parse(event.body)),
+    event
   );
 };
 
-export const amounts: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.getEntryAmounts(event.pathParameters.account).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const search: Handler = (event) => {
+  return processResponse<EntryHeader[]>(
+    entryService.searchEntry(event.queryStringParameters),
+    event
   );
 };
 
-export const entry: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.postNewEntry(JSON.parse(event.body)).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
-  );
-};
-
-export const search: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.searchEntry(event.queryStringParameters).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
-  );
-};
-
-export const detail: Handler = (event, __, callback) => {
-  const token = event.headers.Authorization;
-
-  verifyAuthJwt(
-    token,
-    () =>
-      entryService.getEntryDetail(event.pathParameters.number).subscribe({
-        next: (response) => {
-          callback(null, { status: 200, body: JSON.stringify(response) });
-        },
-      }),
-    callback
+export const detail: Handler = (event) => {
+  return processResponse<EntryDetail[]>(
+    entryService.getEntryDetail(event.pathParameters.number),
+    event
   );
 };

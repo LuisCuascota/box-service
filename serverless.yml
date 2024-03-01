@@ -21,14 +21,6 @@ provider:
       Action:
         - ssm:GetParameter
       Resource: "*"
-    - Effect: "Allow"
-      Action:
-        - cognito-identity:GetOpenIdConfiguration
-      Resource: "*"
-    - Effect: "Allow"
-      Action:
-        - cognito-idp:DescribeUserPool
-      Resource: "*"
   environment:
     DB_DATA: ${ssm:/DB-CREDENTIALS}
 functions:
@@ -232,7 +224,6 @@ functions:
             origin: "*"
             headers:
               - Authorization
-    timeout: 20
   getTypesMetrics:
     handler: src/handler/MetricsHandler.types
     events:

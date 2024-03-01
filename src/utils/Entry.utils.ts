@@ -71,7 +71,6 @@ export const calculateLoanAmount = (
 ): EntryAmount[] => {
   //TODO: Reducir el month, solo pruebas
   const currentDate = moment(); //.add(1, "M");
-  const currentDay = currentDate.date();
   const currentMonth = currentDate.month();
   const currentYear = currentDate.year();
 
@@ -81,7 +80,6 @@ export const calculateLoanAmount = (
 
   loanDetails.map((detail: LoanDetail) => {
     const detailDate = moment(detail.payment_date);
-    const detailDay = detailDate.date();
     const detailMonth = detailDate.month();
     const detailYear = detailDate.year();
 
@@ -92,7 +90,7 @@ export const calculateLoanAmount = (
     ) {
       loanFee += detail.fee_value;
       loanInterest += detail.interest;
-      if (currentDay > detailDay)
+      if (currentMonth > detailMonth)
         loanFeePenalty += detail.fee_value * BoxConfig.loanPenaltyPercentage;
     }
   });
