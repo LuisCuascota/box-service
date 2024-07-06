@@ -9,7 +9,9 @@ import {
   TablesEnum,
   TColDetail,
   TColEgress,
+  TColEgressBillDetail,
   TColEntry,
+  TColEntryBillDetail,
   TColEntryType,
   TColLoanDetail,
 } from "../infraestructure/Tables.enum";
@@ -33,10 +35,22 @@ export class MetricsService implements IMetricsService {
     return of(1).pipe(
       mergeMap(() =>
         forkJoin([
-          this._getTotalAmountByParams(TablesEnum.ENTRY, true),
-          this._getTotalAmountByParams(TablesEnum.EGRESS, true),
-          this._getTotalAmountByParams(TablesEnum.ENTRY, false),
-          this._getTotalAmountByParams(TablesEnum.EGRESS, false),
+          this._getTotalAmountByParams(
+            TablesEnum.ENTRY_BILL_DETAIL,
+            TColEntryBillDetail.TRANSFER
+          ),
+          this._getTotalAmountByParams(
+            TablesEnum.EGRESS_BILL_DETAIL,
+            TColEgressBillDetail.TRANSFER
+          ),
+          this._getTotalAmountByParams(
+            TablesEnum.ENTRY_BILL_DETAIL,
+            TColEntryBillDetail.CASH
+          ),
+          this._getTotalAmountByParams(
+            TablesEnum.EGRESS_BILL_DETAIL,
+            TColEgressBillDetail.CASH
+          ),
           this._getTotalLoanDispatched(),
         ])
       ),
@@ -91,15 +105,14 @@ export class MetricsService implements IMetricsService {
 
   private _getTotalAmountByParams(
     table: TablesEnum,
-    isTransfer: boolean
+    column: string
   ): Observable<number> {
     return of(1).pipe(
       mergeMap(() =>
         of(
           this._knex
-            .sum(buildCol({ t: TColEntry.AMOUNT }, AliasEnum.SUM))
+            .sum(buildCol({ t: column }, AliasEnum.SUM))
             .from({ t: table })
-            .where(buildCol({ t: TColEntry.IS_TRANSFER }), isTransfer)
             .toQuery()
         )
       ),

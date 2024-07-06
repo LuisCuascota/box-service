@@ -30,7 +30,7 @@ export const search: Handler = (event) => {
 };
 
 export const detail: Handler = (event) => {
-  return processResponse<EgressDetail[]>(
+  return processResponse<EgressDetail>(
     egressService.getEgressDetail(event.pathParameters.number),
     event
   );

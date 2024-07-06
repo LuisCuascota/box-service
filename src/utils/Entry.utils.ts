@@ -4,27 +4,30 @@ import { EntryAmount } from "../repository/IEntry.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import { Loan, LoanDetail } from "../repository/ILoan.service";
 
-const getMonthsContribution = (): number => {
+const getGlobalContributions = (): number => {
   const startDate = moment(BoxConfig.startDate);
   //TODO: Reducir el month, solo pruebas
   const currentDate = moment(); //.add(1, "M");
 
   return currentDate.diff(startDate, "months");
 };
-const calculateTotalContribution = (): number => {
-  const monthsContribution = getMonthsContribution();
-
+const getPayedContributions = (dbContribution: number): number => {
   return (
-    BoxConfig.startAmount + monthsContribution * BoxConfig.contributionAmount
+    (dbContribution - BoxConfig.startAmount) / BoxConfig.contributionAmount
   );
 };
 
 const getContributionsToPay = (dbContribution: number): number => {
-  const calculatedContribution = calculateTotalContribution();
+  const globalContributions = getGlobalContributions();
+  const payedContributions = getPayedContributions(dbContribution);
 
-  return Math.round(
-    (calculatedContribution - dbContribution) / BoxConfig.contributionAmount
-  );
+  return Math.round(globalContributions - payedContributions);
+};
+
+const isPastMonth = () => {
+  const currentMonthFirstSaturday = moment().date(1).day(6);
+
+  return moment().isAfter(currentMonthFirstSaturday);
 };
 
 export const calculateContributionAmount = (
@@ -46,7 +49,7 @@ export const calculateContributionAmount = (
       });
       entryAmounts.push({
         id: EntryTypesIdEnum.STRATEGIC_FUND,
-        value: 5 + getMonthsContribution() * BoxConfig.strategicFund,
+        value: 5 + getGlobalContributions() * BoxConfig.strategicFund,
       });
     } else {
       entryAmounts.push({
@@ -58,6 +61,11 @@ export const calculateContributionAmount = (
         entryAmounts.push({
           id: EntryTypesIdEnum.CONTRIBUTION_PENALTY,
           value: (contributionsToPay - 1) * BoxConfig.contributionPenalty,
+        });
+      else if (isPastMonth())
+        entryAmounts.push({
+          id: EntryTypesIdEnum.CONTRIBUTION_PENALTY,
+          value: contributionsToPay * BoxConfig.contributionPenalty,
         });
     }
   }
@@ -71,27 +79,29 @@ export const calculateLoanAmount = (
 ): EntryAmount[] => {
   //TODO: Reducir el month, solo pruebas
   const currentDate = moment(); //.add(1, "M");
-  const currentMonth = currentDate.month();
-  const currentYear = currentDate.year();
 
   let loanFee = 0;
   let loanInterest = 0;
   let loanFeePenalty = 0;
 
   loanDetails.map((detail: LoanDetail) => {
-    const detailDate = moment(detail.payment_date);
-    const detailMonth = detailDate.month();
-    const detailYear = detailDate.year();
-
     if (
-      currentYear >= detailYear &&
-      currentMonth >= detailMonth &&
+      currentDate.isSameOrAfter(detail.payment_date, "month") &&
+      currentDate.isAfter(detail.payment_date, "day") &&
       !detail.is_paid
     ) {
+      loanFeePenalty += detail.fee_value * BoxConfig.loanPenaltyPercentage;
       loanFee += detail.fee_value;
       loanInterest += detail.interest;
-      if (currentMonth > detailMonth)
-        loanFeePenalty += detail.fee_value * BoxConfig.loanPenaltyPercentage;
+
+      return;
+    }
+
+    if (currentDate.isSame(detail.payment_date, "month") && !detail.is_paid) {
+      loanFee += detail.fee_value;
+      loanInterest += detail.interest;
+
+      return;
     }
   });
 

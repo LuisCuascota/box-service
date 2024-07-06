@@ -8,7 +8,8 @@ export interface IEntryService {
   getEntryAmounts(account: number): Observable<EntryAmount[]>;
   postNewEntry(newEntry: NewEntry): Observable<boolean>;
   searchEntry(params: EntryPagination): Observable<EntryHeader[]>;
-  getEntryDetail(number: number): Observable<EntryDetail[]>;
+  getEntryDetail(number: number): Observable<EntryDetail>;
+  getContributionList(account: number): Observable<Contribution[]>;
 }
 
 export interface Counter {
@@ -32,7 +33,8 @@ export interface EntryAmount {
 
 export interface NewEntry {
   header: EntryHeader;
-  detail: EntryDetail[];
+  detail: EntryAmountDetail[];
+  billDetail: EntryBillDetail;
   entryLoanData?: EntryLoanData;
 }
 
@@ -42,10 +44,9 @@ export interface EntryHeader {
   amount: number;
   date: string;
   place: string;
-  is_transfer: boolean;
 }
 
-export interface EntryDetail {
+export interface EntryAmountDetail {
   entry_number: number;
   type_id: number;
   value: number;
@@ -55,4 +56,19 @@ export interface EntryPagination {
   limit: number;
   offset: number;
   account?: number;
+}
+
+export interface Contribution {
+  date: string;
+  number: number;
+  value: number;
+}
+export interface EntryBillDetail {
+  cash: number;
+  transfer: number;
+}
+
+export interface EntryDetail {
+  billDetail: EntryBillDetail;
+  amountDetail: EntryAmountDetail[];
 }

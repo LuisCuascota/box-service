@@ -4,12 +4,13 @@ export interface IEgressService {
   getEgressCount(): Observable<number>;
   postNewEgress(newEgress: NewEgress): Observable<boolean>;
   searchEgress(params: EgressPagination): Observable<EgressHeader[]>;
-  getEgressDetail(number: number): Observable<EgressDetail[]>;
+  getEgressDetail(number: number): Observable<EgressDetail>;
 }
 
 export interface NewEgress {
   header: EgressHeader;
   detail: EgressDetail[];
+  billDetail: EgressBillDetail;
 }
 
 export interface EgressHeader {
@@ -18,11 +19,10 @@ export interface EgressHeader {
   place: string;
   beneficiary: string;
   amount: number;
-  is_transfer: boolean;
   type_id: number;
 }
 
-export interface EgressDetail {
+export interface EgressAmountDetail {
   discharge_number: number;
   description: string;
   value: number;
@@ -31,4 +31,14 @@ export interface EgressDetail {
 export interface EgressPagination {
   limit: number;
   offset: number;
+}
+
+export interface EgressBillDetail {
+  cash: number;
+  transfer: number;
+}
+
+export interface EgressDetail {
+  billDetail: EgressBillDetail;
+  amountDetail: EgressAmountDetail[];
 }

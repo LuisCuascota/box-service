@@ -1,18 +1,21 @@
 import { inject, injectable } from "inversify";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { from, map, mergeMap, Observable, of, tap } from "rxjs";
+import { forkJoin, from, map, mergeMap, Observable, of } from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
   buildCol,
   TablesEnum,
   TColEgress,
+  TColEgressBillDetail,
   TColEgressDetail,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import { Counter } from "../repository/IEntry.service";
 import {
+  EgressAmountDetail,
+  EgressBillDetail,
   EgressDetail,
   EgressHeader,
   EgressPagination,
@@ -49,6 +52,12 @@ export class EgressService implements IEgressService {
     return of(1).pipe(
       mergeMap(() => this._saveEgressHead(newEgress.header)),
       mergeMap(() => this._saveEgressDetail(newEgress.detail)),
+      mergeMap(() =>
+        this._saveEgressBillDetail(
+          newEgress.header.number,
+          newEgress.billDetail
+        )
+      ),
       map(() => true),
       tag("EgressService | postNewEgress")
     );
@@ -65,7 +74,6 @@ export class EgressService implements IEgressService {
               buildCol({ e: TColEgress.PLACE }),
               buildCol({ e: TColEgress.AMOUNT }),
               buildCol({ e: TColEgress.BENEFICIARY }),
-              buildCol({ e: TColEgress.IS_TRANSFER })
             )
             .from({ e: TablesEnum.EGRESS })
             .orderBy(buildCol({ e: TColEgress.NUMBER }), "desc")
@@ -79,7 +87,25 @@ export class EgressService implements IEgressService {
     );
   }
 
-  public getEgressDetail(number: number): Observable<EgressDetail[]> {
+  public getEgressDetail(number: number): Observable<EgressDetail> {
+    return of(1).pipe(
+      mergeMap(() =>
+        forkJoin([this._getAmountDetail(number), this._getBillDetail(number)])
+      ),
+      map(
+        ([amountDetail, billDetail]: [
+          EgressAmountDetail[],
+          EgressBillDetail,
+        ]) => ({
+          billDetail,
+          amountDetail,
+        })
+      ),
+      tag("EgressService | getEgressDetail")
+    );
+  }
+
+  private _getAmountDetail(number: number): Observable<EgressAmountDetail[]> {
     return of(1).pipe(
       mergeMap(() =>
         of(
@@ -94,8 +120,28 @@ export class EgressService implements IEgressService {
             .toQuery()
         )
       ),
-      mergeMap((query: string) => this._mysql.query<EgressDetail>(query)),
-      tag("EgressService | getEgressDetail")
+      mergeMap((query: string) => this._mysql.query<EgressAmountDetail>(query)),
+      tag("EgressService | _getAmountDetail")
+    );
+  }
+
+  private _getBillDetail(number: number): Observable<EgressBillDetail> {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .select(
+              buildCol({ t: TColEgressBillDetail.CASH }),
+              buildCol({ t: TColEgressBillDetail.TRANSFER })
+            )
+            .from({ t: TablesEnum.EGRESS_BILL_DETAIL })
+            .where(buildCol({ t: TColEgressBillDetail.EGRESS_NUMBER }), number)
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query<EgressBillDetail>(query)),
+      map((response: EgressBillDetail[]) => response[0]),
+      tag("EgressService | _getBillDetail")
     );
   }
 
@@ -118,6 +164,25 @@ export class EgressService implements IEgressService {
       mergeMap((query: string) => this._mysql.query(query)),
       map(() => true),
       tag("EgressService | _saveEgressDetail")
+    );
+  };
+
+  private _saveEgressBillDetail = (
+    egressNumber: number,
+    billDetail: EgressBillDetail
+  ) => {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .insert({ discharge_number: egressNumber, ...billDetail })
+            .into(TablesEnum.EGRESS_BILL_DETAIL)
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query(query)),
+      map(() => true),
+      tag("EgressService | _saveEgressBillDetail")
     );
   };
 }

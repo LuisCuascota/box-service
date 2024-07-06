@@ -18,7 +18,7 @@ export class MySQLGateway implements IMySQLGateway {
   }
 
   private async _getDBConfig() {
-    const envConfig = process.env.DB_DATA ? process.env.DB_DATA : "{}";
+    //const envConfig = process.env.DB_DATA ? process.env.DB_DATA : "{}";
 
     //return JSON.parse(envConfig);
     return DBConfigEnvDev;

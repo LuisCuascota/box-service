@@ -8,6 +8,8 @@ export enum TablesEnum {
   LOAN_DETAIL = "Loan_detail",
   EGRESS = "Discharge",
   EGRESS_DETAIL = "Discharge_detail",
+  ENTRY_BILL_DETAIL = "Entry_bill_detail",
+  EGRESS_BILL_DETAIL = "Discharge_bill_detail",
 }
 
 export enum TColPerson {
@@ -30,12 +32,23 @@ export enum TColEntryType {
   DESCRIPTION = "description",
 }
 
+export enum TColEntryBillDetail {
+  CASH = "cash",
+  TRANSFER = "transfer",
+  ENTRY_NUMBER = "entry_number",
+}
+
+export enum TColEgressBillDetail {
+  CASH = "cash",
+  TRANSFER = "transfer",
+  EGRESS_NUMBER = "discharge_number",
+}
+
 export enum TColEntry {
   NUMBER = "number",
   ACCOUNT_NUMBER = "account_number",
   DATE = "date",
   AMOUNT = "amount",
-  IS_TRANSFER = "is_transfer",
   PLACE = "place",
 }
 
@@ -70,7 +83,6 @@ export enum TColEgress {
   PLACE = "place",
   BENEFICIARY = "beneficiary",
   AMOUNT = "amount",
-  IS_TRANSFER = "is_transfer",
 }
 
 export enum TColEgressDetail {

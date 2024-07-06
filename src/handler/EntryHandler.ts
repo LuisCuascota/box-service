@@ -3,6 +3,7 @@ import { Handler } from "aws-lambda";
 import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
 import {
+  Contribution,
   EntryAmount,
   EntryDetail,
   EntryHeader,
@@ -43,8 +44,15 @@ export const search: Handler = (event) => {
 };
 
 export const detail: Handler = (event) => {
-  return processResponse<EntryDetail[]>(
+  return processResponse<EntryDetail>(
     entryService.getEntryDetail(event.pathParameters.number),
+    event
+  );
+};
+
+export const contributions: Handler = (event) => {
+  return processResponse<Contribution[]>(
+    entryService.getContributionList(event.pathParameters.account),
     event
   );
 };

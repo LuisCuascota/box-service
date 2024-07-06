@@ -144,6 +144,16 @@ functions:
             origin: "*"
             headers:
               - Authorization
+  getContributionList:
+    handler: src/handler/EntryHandler.contributions
+    events:
+      - http:
+          path: api/v1/entry/contribution/{account}
+          method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   postNewLoan:
     handler: src/handler/LoanHandler.loan
     events:
