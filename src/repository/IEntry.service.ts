@@ -44,12 +44,16 @@ export interface EntryHeader {
   amount: number;
   date: string;
   place: string;
+  cash: number;
+  transfer: number;
+  status: string;
 }
 
 export interface EntryAmountDetail {
   entry_number: number;
   type_id: number;
   value: number;
+  currentSaving?: number;
 }
 
 export interface EntryPagination {

@@ -3,23 +3,31 @@ import { BoxConfig } from "../environment/BoxConfig.env";
 import { EntryAmount } from "../repository/IEntry.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import { Loan, LoanDetail } from "../repository/ILoan.service";
+import { Account } from "../repository/IPerson.service";
 
-const getGlobalContributions = (): number => {
-  const startDate = moment(BoxConfig.startDate);
+const getGlobalContributions = (initAccountDate: string): number => {
+  const startDate = moment(initAccountDate);
   //TODO: Reducir el month, solo pruebas
   const currentDate = moment(); //.add(1, "M");
 
   return currentDate.diff(startDate, "months");
 };
-const getPayedContributions = (dbContribution: number): number => {
+
+const getPayedContributions = (
+  currentContribution: number,
+  startAccountAmount: number
+): number => {
   return (
-    (dbContribution - BoxConfig.startAmount) / BoxConfig.contributionAmount
+    (currentContribution - startAccountAmount) / BoxConfig.contributionAmount
   );
 };
 
-const getContributionsToPay = (dbContribution: number): number => {
-  const globalContributions = getGlobalContributions();
-  const payedContributions = getPayedContributions(dbContribution);
+export const getContributionsToPay = (account: Account): number => {
+  const globalContributions = getGlobalContributions(account.creation_date);
+  const payedContributions = getPayedContributions(
+    account.current_saving,
+    account.start_amount
+  );
 
   return Math.round(globalContributions - payedContributions);
 };
@@ -31,9 +39,9 @@ const isPastMonth = () => {
 };
 
 export const calculateContributionAmount = (
-  dbContribution: number
+  account: Account
 ): EntryAmount[] => {
-  const contributionsToPay = getContributionsToPay(dbContribution);
+  const contributionsToPay = getContributionsToPay(account);
   const entryAmounts: EntryAmount[] = [];
 
   if (contributionsToPay >= 1) {
@@ -42,14 +50,14 @@ export const calculateContributionAmount = (
       value: contributionsToPay * BoxConfig.contributionAmount,
     });
 
-    if (dbContribution === null) {
+    if (account.current_saving === 0) {
       entryAmounts.push({
         id: EntryTypesIdEnum.ADMINISTRATION_FUND,
         value: 10,
       });
       entryAmounts.push({
         id: EntryTypesIdEnum.STRATEGIC_FUND,
-        value: 5 + getGlobalContributions() * BoxConfig.strategicFund,
+        value: (moment().month() + 1) * BoxConfig.strategicFund,
       });
     } else {
       entryAmounts.push({

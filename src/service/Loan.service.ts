@@ -11,6 +11,7 @@ import {
   Observable,
   of,
   switchMap,
+  toArray,
 } from "rxjs";
 import knex, { Knex } from "knex";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import {
+  EntryLoanData,
   ILoanService,
   Loan,
   LoanDefinition,
@@ -33,6 +35,8 @@ import {
 } from "../repository/ILoan.service";
 import { Counter } from "../repository/IEntry.service";
 import QueryBuilder = Knex.QueryBuilder;
+import { checkLoanPaymentsStatus } from "../utils/Loan.utils";
+import { RegistryStatusEnum } from "../infraestructure/RegistryStatusEnum";
 
 @injectable()
 export class LoanService implements ILoanService {
@@ -96,7 +100,8 @@ export class LoanService implements ILoanService {
   }
 
   public updateLoanDetail(details: LoanDetailToPay[]): Observable<boolean> {
-    return from(details).pipe(
+    return of(1).pipe(
+      switchMap(() => from(details)),
       mergeMap((detail: LoanDetailToPay) =>
         of(
           this._knex
@@ -111,20 +116,29 @@ export class LoanService implements ILoanService {
       ),
       mergeMap((query: string) => this._mysql.query<boolean>(query)),
       map(() => true),
+      last(),
       tag("LoanService | updateLoanDetail")
     );
   }
 
-  public updateFinishLoan(loanNumber: number): Observable<boolean> {
+  public updateLoanHead(loanData: EntryLoanData): Observable<boolean> {
+    const totalPaid = loanData.loanDetailToPay.reduce(
+      (sum, entry) => sum + entry.feeValue,
+      0
+    );
+
     return of(1).pipe(
       mergeMap(() =>
         of(
           this._knex
             .update({
-              [buildCol({ l: TColLoan.IS_END })]: true,
+              [buildCol({ l: TColLoan.IS_END })]: loanData.isFinishLoan,
+              [buildCol({ l: TColLoan.DEBT })]: (
+                loanData.currentDebt - totalPaid
+              ).toFixed(2),
             })
             .from({ l: TablesEnum.LOAN })
-            .where(buildCol({ l: TColLoan.NUMBER }), loanNumber)
+            .where(buildCol({ l: TColLoan.NUMBER }), loanData.loanNumber)
             .toQuery()
         )
       ),
@@ -156,6 +170,7 @@ export class LoanService implements ILoanService {
               buildCol({ l: TColLoan.IS_END }),
               buildCol({ l: TColLoan.RATE }),
               buildCol({ l: TColLoan.TERM }),
+              buildCol({ l: TColLoan.DEBT }),
               buildCol({ p: TColPerson.NAMES }),
               buildCol({ p: TColPerson.SURNAMES })
             )
@@ -177,7 +192,6 @@ export class LoanService implements ILoanService {
           query.where(buildCol({ l: TColLoan.ACCOUNT }), params.account);
 
         query
-          .orderBy(buildCol({ l: TColLoan.IS_END }), "asc")
           .orderBy(buildCol({ l: TColLoan.NUMBER }), "desc")
           .limit(params.limit)
           .offset(params.offset)
@@ -186,9 +200,41 @@ export class LoanService implements ILoanService {
         return of(query.toQuery());
       }),
       mergeMap((query: string) => this._mysql.query<Loan>(query)),
+      mergeMap((loanList: Loan[]) => this._setLoanStatus(loanList)),
       tag("LoanService | searchLoan")
     );
   }
+
+  private _setLoanStatus = (loanList: Loan[]): Observable<Loan[]> => {
+    return from(loanList).pipe(
+      concatMap((loan: Loan) =>
+        iif(
+          () => loan.is_end,
+          of({ ...loan, status: RegistryStatusEnum.PAID }),
+          this._verifyLoanStatus(loan)
+        )
+      ),
+      toArray()
+    );
+  };
+
+  private _verifyLoanStatus = (loan: Loan) => {
+    return this.getLoanDetail(loan.number).pipe(
+      map((loanDetails: LoanDetail[]) => {
+        const isDelayed = checkLoanPaymentsStatus(loanDetails);
+
+        if (isDelayed) {
+          loan.status = RegistryStatusEnum.LATE;
+
+          return loan;
+        }
+
+        loan.status = RegistryStatusEnum.CURRENT;
+
+        return loan;
+      })
+    );
+  };
 
   private _saveLoanHead = (head: Loan) => {
     return of(1).pipe(

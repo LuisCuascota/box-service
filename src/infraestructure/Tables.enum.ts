@@ -25,6 +25,9 @@ export enum TColAccount {
   NUMBER = "number",
   DNI = "dni",
   IS_DISABLED = "is_disabled",
+  CREATION_DATE = "creation_date",
+  START_AMOUNT = "start_amount",
+  CURRENT_SAVING = "current_saving",
 }
 
 export enum TColEntryType {
@@ -66,6 +69,7 @@ export enum TColLoan {
   VALUE = "value",
   TERM = "term",
   RATE = "rate",
+  DEBT = "debt",
 }
 
 export enum TColLoanDetail {

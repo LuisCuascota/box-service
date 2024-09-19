@@ -10,6 +10,7 @@ plugins:
 provider:
   name: aws
   runtime: nodejs18.x
+  timeout: 30
   vpc:
     securityGroupIds:
       - sg-0b18df528939b513e

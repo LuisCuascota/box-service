@@ -2,6 +2,7 @@ import { inject, injectable } from "inversify";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
 import {
+  concatMap,
   forkJoin,
   from,
   iif,
@@ -11,6 +12,7 @@ import {
   Observable,
   of,
   switchMap,
+  toArray,
 } from "rxjs";
 import knex, { Knex } from "knex";
 import {
@@ -32,33 +34,37 @@ import {
   IEntryService,
   NewEntry,
   EntryHeader,
-  Total,
   EntryPagination,
   Contribution,
   EntryBillDetail,
   EntryAmountDetail,
   EntryDetail,
 } from "../repository/IEntry.service";
-import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import {
   calculateContributionAmount,
   calculateLoanAmount,
 } from "../utils/Entry.utils";
 import { ILoanService, Loan, LoanDetail } from "../repository/ILoan.service";
 import QueryBuilder = Knex.QueryBuilder;
+import { updateEntryEgressStatus } from "../utils/Common.utils";
+import { Account, IPersonService } from "../repository/IPerson.service";
+import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 
 @injectable()
 export class EntryService implements IEntryService {
   private readonly _knex: Knex = knex({ client: "mysql" });
   private readonly _mysql: IMySQLGateway;
   private readonly _loanService: ILoanService;
+  private readonly _personService: IPersonService;
 
   constructor(
     @inject(IDENTIFIERS.MySQLGateway) mysql: IMySQLGateway,
-    @inject(IDENTIFIERS.LoanService) loanService: ILoanService
+    @inject(IDENTIFIERS.LoanService) loanService: ILoanService,
+    @inject(IDENTIFIERS.PersonService) personService: IPersonService
   ) {
     this._mysql = mysql;
     this._loanService = loanService;
+    this._personService = personService;
   }
 
   public getEntryCount(): Observable<number> {
@@ -105,7 +111,9 @@ export class EntryService implements IEntryService {
   public postNewEntry(newEntry: NewEntry): Observable<boolean> {
     return of(1).pipe(
       mergeMap(() => this._saveEntryHead(newEntry.header)),
-      mergeMap(() => this._saveEntryDetail(newEntry.detail)),
+      mergeMap(() =>
+        this._saveEntryDetail(newEntry.detail, newEntry.header.account_number)
+      ),
       mergeMap(() =>
         this._saveEntryBillDetail(newEntry.header.number, newEntry.billDetail)
       ),
@@ -118,10 +126,8 @@ export class EntryService implements IEntryService {
         return of(true);
       }),
       mergeMap(() => {
-        if (newEntry.entryLoanData && newEntry.entryLoanData.isFinishLoan)
-          return this._loanService.updateFinishLoan(
-            newEntry.entryLoanData.loanNumber
-          );
+        if (newEntry.entryLoanData)
+          return this._loanService.updateLoanHead(newEntry.entryLoanData);
 
         return of(true);
       }),
@@ -142,7 +148,9 @@ export class EntryService implements IEntryService {
               buildCol({ e: TColEntry.PLACE }),
               buildCol({ e: TColEntry.ACCOUNT_NUMBER }),
               buildCol({ p: TColPerson.NAMES }),
-              buildCol({ p: TColPerson.SURNAMES })
+              buildCol({ p: TColPerson.SURNAMES }),
+              buildCol({ b: TColEntryBillDetail.CASH }),
+              buildCol({ b: TColEntryBillDetail.TRANSFER })
             )
             .from({ e: TablesEnum.ENTRY })
             .innerJoin(
@@ -154,6 +162,11 @@ export class EntryService implements IEntryService {
               { p: TablesEnum.PERSON },
               buildCol({ p: TColPerson.DNI }),
               buildCol({ a: TColAccount.DNI })
+            )
+            .innerJoin(
+              { b: TablesEnum.ENTRY_BILL_DETAIL },
+              buildCol({ e: TColEntry.NUMBER }),
+              buildCol({ b: TColEntryBillDetail.ENTRY_NUMBER })
             )
         )
       ),
@@ -173,9 +186,22 @@ export class EntryService implements IEntryService {
         return of(query.toQuery());
       }),
       mergeMap((query: string) => this._mysql.query<EntryHeader>(query)),
+      mergeMap((entryList: EntryHeader[]) => this._setEntryStatus(entryList)),
       tag("EntryService | searchEntry")
     );
   }
+
+  private _setEntryStatus = (
+    entryList: EntryHeader[]
+  ): Observable<EntryHeader[]> => {
+    return from(entryList).pipe(
+      concatMap(
+        (entry: EntryHeader) =>
+          updateEntryEgressStatus(entry) as Observable<EntryHeader>
+      ),
+      toArray()
+    );
+  };
 
   public getEntryDetail(number: number): Observable<EntryDetail> {
     return of(1).pipe(
@@ -304,11 +330,30 @@ export class EntryService implements IEntryService {
     );
   };
 
-  private _saveEntryDetail = (details: EntryAmountDetail[]) => {
+  private _saveEntryDetail = (
+    details: EntryAmountDetail[],
+    account: number
+  ) => {
     return of(1).pipe(
       switchMap(() => from(details)),
       mergeMap((detail: EntryAmountDetail) =>
-        of(this._knex.insert(detail).into(TablesEnum.ENTRY_DETAIL).toQuery())
+        iif(
+          () => detail.type_id === EntryTypesIdEnum.CONTRIBUTION,
+          this._updateAccountContribution(detail, account),
+          of(detail)
+        )
+      ),
+      mergeMap((detail: EntryAmountDetail) =>
+        of(
+          this._knex
+            .insert({
+              entry_number: detail.entry_number,
+              type_id: detail.type_id,
+              value: detail.value,
+            })
+            .into(TablesEnum.ENTRY_DETAIL)
+            .toQuery()
+        )
       ),
       mergeMap((query: string) => this._mysql.query(query)),
       last(),
@@ -316,33 +361,29 @@ export class EntryService implements IEntryService {
     );
   };
 
+  private _updateAccountContribution(
+    detail: EntryAmountDetail,
+    account: number
+  ): Observable<EntryAmountDetail> {
+    return of(1).pipe(
+      mergeMap(() =>
+        this._personService.updateAccountSaving(
+          account,
+          detail.currentSaving!,
+          detail.value
+        )
+      ),
+      map(() => detail),
+      tag("EntryService | _updateAccountContribution")
+    );
+  }
+
   private _calculateContributionAmount(
     account: number
   ): Observable<EntryAmount[]> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .sum(buildCol({ d: TColDetail.VALUE }, AliasEnum.TOTAL))
-            .from({ d: TablesEnum.ENTRY_DETAIL })
-            .innerJoin(
-              { e: TablesEnum.ENTRY },
-              buildCol({ d: TColDetail.ENTRY_NUMBER }),
-              buildCol({ e: TColEntry.NUMBER })
-            )
-            .where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), account)
-            .where(
-              buildCol({ d: TColDetail.TYPE_ID }),
-              EntryTypesIdEnum.CONTRIBUTION
-            )
-            .toQuery()
-        )
-      ),
-      mergeMap((query: string) => this._mysql.query<Total>(query)),
-      map((response: Total[]) => response[0][AliasEnum.TOTAL]),
-      map((dbContribution: number) =>
-        calculateContributionAmount(dbContribution)
-      ),
+      mergeMap(() => this._personService.getAccount(account)),
+      map((account: Account) => calculateContributionAmount(account)),
       tag("EntryService | _calculateContributionAmount")
     );
   }

@@ -1,7 +1,16 @@
 import { inject, injectable } from "inversify";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { forkJoin, from, map, mergeMap, Observable, of } from "rxjs";
+import {
+  concatMap,
+  forkJoin,
+  from,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  toArray,
+} from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
@@ -22,6 +31,7 @@ import {
   IEgressService,
   NewEgress,
 } from "../repository/IEgress.service";
+import { updateEntryEgressStatus } from "../utils/Common.utils";
 
 @injectable()
 export class EgressService implements IEgressService {
@@ -74,8 +84,15 @@ export class EgressService implements IEgressService {
               buildCol({ e: TColEgress.PLACE }),
               buildCol({ e: TColEgress.AMOUNT }),
               buildCol({ e: TColEgress.BENEFICIARY }),
+              buildCol({ b: TColEgressBillDetail.CASH }),
+              buildCol({ b: TColEgressBillDetail.TRANSFER })
             )
             .from({ e: TablesEnum.EGRESS })
+            .innerJoin(
+              { b: TablesEnum.EGRESS_BILL_DETAIL },
+              buildCol({ e: TColEgress.NUMBER }),
+              buildCol({ b: TColEgressBillDetail.EGRESS_NUMBER })
+            )
             .orderBy(buildCol({ e: TColEgress.NUMBER }), "desc")
             .limit(params.limit)
             .offset(params.offset)
@@ -83,9 +100,24 @@ export class EgressService implements IEgressService {
         )
       ),
       mergeMap((query: string) => this._mysql.query<EgressHeader>(query)),
+      mergeMap((egressList: EgressHeader[]) =>
+        this._setEgressStatus(egressList)
+      ),
       tag("EgressService | searchEgress")
     );
   }
+
+  private _setEgressStatus = (
+    egressList: EgressHeader[]
+  ): Observable<EgressHeader[]> => {
+    return from(egressList).pipe(
+      concatMap(
+        (egress: EgressHeader) =>
+          updateEntryEgressStatus(egress) as Observable<EgressHeader>
+      ),
+      toArray()
+    );
+  };
 
   public getEgressDetail(number: number): Observable<EgressDetail> {
     return of(1).pipe(

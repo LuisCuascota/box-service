@@ -20,6 +20,9 @@ export interface EgressHeader {
   beneficiary: string;
   amount: number;
   type_id: number;
+  cash: number;
+  transfer: number;
+  status: string;
 }
 
 export interface EgressAmountDetail {

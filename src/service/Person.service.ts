@@ -1,23 +1,27 @@
 import { inject, injectable } from "inversify";
 import {
+  Account,
   IPersonService,
   Person,
   PersonPagination,
 } from "../repository/IPerson.service";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { map, mergeMap, Observable, of } from "rxjs";
+import { concatMap, from, map, mergeMap, Observable, of, toArray } from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
   buildCol,
   TablesEnum,
   TColAccount,
+  TColLoan,
   TColPerson,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import QueryBuilder = Knex.QueryBuilder;
 import { Counter } from "../repository/IEntry.service";
+import { updatePersonStatus } from "../utils/Common.utils";
+import { EntryLoanData } from "../repository/ILoan.service";
 
 @injectable()
 export class PersonService implements IPersonService {
@@ -35,6 +39,9 @@ export class PersonService implements IPersonService {
             .select(
               buildCol({ a: TColAccount.NUMBER }),
               buildCol({ a: TColAccount.DNI }),
+              buildCol({ a: TColAccount.CURRENT_SAVING }),
+              buildCol({ a: TColAccount.CREATION_DATE }),
+              buildCol({ a: TColAccount.START_AMOUNT }),
               buildCol({ p: TColPerson.NAMES }),
               buildCol({ p: TColPerson.SURNAMES }),
               buildCol({ p: TColPerson.BIRTH_DAY }),
@@ -57,6 +64,7 @@ export class PersonService implements IPersonService {
         return of(query.toQuery());
       }),
       mergeMap((query: string) => this._mysql.query<Person>(query)),
+      mergeMap((personList: Person[]) => this._setAccountStatus(personList)),
       tag("PersonService | getPersons")
     );
   }
@@ -128,6 +136,60 @@ export class PersonService implements IPersonService {
       tag("PersonService | deletePerson")
     );
   }
+
+  public getAccount(account: number): Observable<Account> {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .select(
+              buildCol({ a: TColAccount.NUMBER }),
+              buildCol({ a: TColAccount.CREATION_DATE }),
+              buildCol({ a: TColAccount.START_AMOUNT }),
+              buildCol({ a: TColAccount.CURRENT_SAVING })
+            )
+            .from({ a: TablesEnum.ACCOUNT })
+            .where(buildCol({ a: TColAccount.NUMBER }), account)
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query<Account>(query)),
+      map((response: Account[]) => response[0]),
+      tag("PersonService | getAccount")
+    );
+  }
+
+  public updateAccountSaving(
+    account: number,
+    currentSaving: number,
+    entryAmount: number
+  ): Observable<boolean> {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .update({
+              [buildCol({ a: TColAccount.CURRENT_SAVING })]: (
+                currentSaving + entryAmount
+              ).toFixed(2),
+            })
+            .from({ a: TablesEnum.ACCOUNT })
+            .where(buildCol({ a: TColAccount.NUMBER }), account)
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query<boolean>(query)),
+      map(() => true),
+      tag("PersonService | updateAccountSaving")
+    );
+  }
+
+  private _setAccountStatus = (accountList: Person[]): Observable<Person[]> => {
+    return from(accountList).pipe(
+      concatMap((person: Person) => updatePersonStatus(person)),
+      toArray()
+    );
+  };
 
   private _savePerson = (person: Person) => {
     return of(1).pipe(
