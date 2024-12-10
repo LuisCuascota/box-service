@@ -1,6 +1,9 @@
 import { EntryHeader } from "../repository/IEntry.service";
 import { map, Observable, of } from "rxjs";
-import { AccountStatusEnum, EntryBillTypeEnum } from '../infraestructure/RegistryStatusEnum'
+import {
+  AccountStatusEnum,
+  EntryBillTypeEnum,
+} from "../infraestructure/RegistryStatusEnum";
 import { EgressHeader } from "../repository/IEgress.service";
 import { Person } from "../repository/IPerson.service";
 import { getContributionsToPay } from "./Entry.utils";

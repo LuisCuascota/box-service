@@ -10,7 +10,6 @@ import {
   TColDetail,
   TColEgress,
   TColEgressBillDetail,
-  TColEntry,
   TColEntryBillDetail,
   TColEntryType,
   TColLoanDetail,

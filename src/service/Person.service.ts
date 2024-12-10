@@ -2,26 +2,35 @@ import { inject, injectable } from "inversify";
 import {
   Account,
   IPersonService,
+  ModePagination,
   Person,
   PersonPagination,
 } from "../repository/IPerson.service";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { concatMap, from, map, mergeMap, Observable, of, toArray } from "rxjs";
+import {
+  concatMap,
+  from,
+  iif,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  toArray,
+} from "rxjs";
 import knex, { Knex } from "knex";
 import {
   AliasEnum,
   buildCol,
   TablesEnum,
   TColAccount,
-  TColLoan,
   TColPerson,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
-import QueryBuilder = Knex.QueryBuilder;
 import { Counter } from "../repository/IEntry.service";
 import { updatePersonStatus } from "../utils/Common.utils";
-import { EntryLoanData } from "../repository/ILoan.service";
+import moment from "moment";
+import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
 export class PersonService implements IPersonService {
@@ -33,38 +42,50 @@ export class PersonService implements IPersonService {
 
   public getPersons(params?: PersonPagination): Observable<Person[]> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .select(
-              buildCol({ a: TColAccount.NUMBER }),
-              buildCol({ a: TColAccount.DNI }),
-              buildCol({ a: TColAccount.CURRENT_SAVING }),
-              buildCol({ a: TColAccount.CREATION_DATE }),
-              buildCol({ a: TColAccount.START_AMOUNT }),
-              buildCol({ p: TColPerson.NAMES }),
-              buildCol({ p: TColPerson.SURNAMES }),
-              buildCol({ p: TColPerson.BIRTH_DAY }),
-              buildCol({ p: TColPerson.ADDRESS }),
-              buildCol({ p: TColPerson.PHONE })
-            )
-            .from({ p: TablesEnum.PERSON })
-            .innerJoin(
-              { a: TablesEnum.ACCOUNT },
-              buildCol({ p: TColPerson.DNI }),
-              buildCol({ a: TColAccount.DNI })
-            )
-            .where(buildCol({ a: TColAccount.IS_DISABLED }), false)
-            .orderBy(buildCol({ a: TColAccount.NUMBER }))
-        )
+      map(() =>
+        this._knex
+          .select(
+            buildCol({ a: TColAccount.NUMBER }),
+            buildCol({ a: TColAccount.DNI }),
+            buildCol({ a: TColAccount.CURRENT_SAVING }),
+            buildCol({ a: TColAccount.CREATION_DATE }),
+            buildCol({ a: TColAccount.START_AMOUNT }),
+            buildCol({ p: TColPerson.NAMES }),
+            buildCol({ p: TColPerson.SURNAMES }),
+            buildCol({ p: TColPerson.BIRTH_DAY }),
+            buildCol({ p: TColPerson.ADDRESS }),
+            buildCol({ p: TColPerson.PHONE }),
+            buildCol({ a: TColAccount.IS_DISABLED })
+          )
+          .from({ p: TablesEnum.PERSON })
+          .innerJoin(
+            { a: TablesEnum.ACCOUNT },
+            buildCol({ p: TColPerson.DNI }),
+            buildCol({ a: TColAccount.DNI })
+          )
       ),
-      mergeMap((query: QueryBuilder) => {
-        if (params) query.limit(params.limit).offset(params.offset);
+      map((query: QueryBuilder) => {
+        if (params && params.mode && params.mode === ModePagination.ACTIVE_ONLY)
+          query.where(buildCol({ a: TColAccount.IS_DISABLED }), false);
 
-        return of(query.toQuery());
+        query.orderBy(buildCol({ a: TColAccount.NUMBER }));
+
+        if (params && params.limit && params.offset)
+          query.limit(params.limit).offset(params.offset);
+
+        return query.toQuery();
       }),
       mergeMap((query: string) => this._mysql.query<Person>(query)),
-      mergeMap((personList: Person[]) => this._setAccountStatus(personList)),
+      mergeMap((personList: Person[]) =>
+        iif(
+          () =>
+            (params &&
+              params.mode &&
+              params.mode === ModePagination.FULL) as boolean,
+          this._setAccountStatus(personList),
+          of(personList)
+        )
+      ),
       tag("PersonService | getPersons")
     );
   }
@@ -76,7 +97,6 @@ export class PersonService implements IPersonService {
           this._knex
             .count(buildCol({ a: TColAccount.NUMBER }, AliasEnum.COUNT))
             .from({ a: TablesEnum.ACCOUNT })
-            .where(buildCol({ a: TColAccount.IS_DISABLED }), false)
             .toQuery()
         )
       ),
@@ -194,7 +214,19 @@ export class PersonService implements IPersonService {
   private _savePerson = (person: Person) => {
     return of(1).pipe(
       mergeMap(() =>
-        of(this._knex.insert(person).into(TablesEnum.PERSON).toQuery())
+        of(
+          this._knex
+            .insert({
+              dni: person.dni,
+              names: person.names,
+              surnames: person.surnames,
+              birth_day: person.birth_day,
+              address: person.address,
+              phone: person.phone,
+            })
+            .into(TablesEnum.PERSON)
+            .toQuery()
+        )
       ),
       mergeMap((query: string) => this._mysql.query(query)),
       map(() => true),
@@ -207,7 +239,12 @@ export class PersonService implements IPersonService {
       mergeMap(() =>
         of(
           this._knex
-            .insert({ dni: person.dni })
+            .insert({
+              dni: person.dni,
+              start_amount: person.start_amount,
+              current_saving: person.start_amount,
+              creation_date: moment().format("YYYY-MM-DD").toString(),
+            })
             .into(TablesEnum.ACCOUNT)
             .toQuery()
         )

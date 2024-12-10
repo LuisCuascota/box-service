@@ -15,7 +15,10 @@ import { processResponse } from "../utils/Verifier.utils";
 const entryService = CONTAINER.get<IEntryService>(IDENTIFIERS.EntryService);
 
 export const count: Handler = (event) => {
-  return processResponse<number>(entryService.getEntryCount(), event);
+  return processResponse<number>(
+    entryService.getEntryCount(event.queryStringParameters),
+    event
+  );
 };
 
 export const types: Handler = (event) => {

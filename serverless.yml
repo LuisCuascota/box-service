@@ -23,7 +23,7 @@ provider:
         - ssm:GetParameter
       Resource: "*"
   environment:
-    DB_DATA: ${ssm:/DB-CREDENTIALS}
+    #DB_DATA: ${ssm:/DB-CREDENTIALS}
 functions:
   getPersons:
     handler: src/handler/PersonHandler.find
@@ -240,6 +240,16 @@ functions:
     events:
       - http:
           path: api/v1/metrics/types
+          method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
+  getPartnerBalance:
+    handler: src/handler/BalanceHandler.balance
+    events:
+      - http:
+          path: api/v1/balance
           method: GET
           cors:
             origin: "*"

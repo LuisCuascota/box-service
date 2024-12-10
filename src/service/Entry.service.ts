@@ -39,6 +39,7 @@ import {
   EntryBillDetail,
   EntryAmountDetail,
   EntryDetail,
+  CountFilter,
 } from "../repository/IEntry.service";
 import {
   calculateContributionAmount,
@@ -67,16 +68,22 @@ export class EntryService implements IEntryService {
     this._personService = personService;
   }
 
-  public getEntryCount(): Observable<number> {
+  public getEntryCount(params?: CountFilter): Observable<number> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .count(buildCol({ p: TColEntry.NUMBER }, AliasEnum.COUNT))
-            .from({ p: TablesEnum.ENTRY })
-            .toQuery()
-        )
+      map(() =>
+        this._knex
+          .count(buildCol({ p: TColEntry.NUMBER }, AliasEnum.COUNT))
+          .from({ p: TablesEnum.ENTRY })
       ),
+      map((query: QueryBuilder) => {
+        if (params && params.account)
+          query.where(
+            buildCol({ p: TColEntry.ACCOUNT_NUMBER }),
+            params.account
+          );
+
+        return query.toQuery();
+      }),
       mergeMap((query: string) => this._mysql.query<Counter>(query)),
       map((response: Counter[]) => response[0][AliasEnum.COUNT]),
       tag("EntryService | getEntryCount")

@@ -3,7 +3,7 @@ import { AliasEnum } from "../infraestructure/Tables.enum";
 import { EntryLoanData, LoanDefinition } from "./ILoan.service";
 
 export interface IEntryService {
-  getEntryCount(): Observable<number>;
+  getEntryCount(params?: CountFilter): Observable<number>;
   getEntryTypes(): Observable<EntryType[]>;
   getEntryAmounts(account: number): Observable<EntryAmount[]>;
   postNewEntry(newEntry: NewEntry): Observable<boolean>;
@@ -75,4 +75,10 @@ export interface EntryBillDetail {
 export interface EntryDetail {
   billDetail: EntryBillDetail;
   amountDetail: EntryAmountDetail[];
+}
+
+export interface CountFilter {
+  account?: number;
+  startDate?: number;
+  endDate?: number;
 }

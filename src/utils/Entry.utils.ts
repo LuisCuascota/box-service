@@ -6,9 +6,9 @@ import { Loan, LoanDetail } from "../repository/ILoan.service";
 import { Account } from "../repository/IPerson.service";
 
 const getGlobalContributions = (initAccountDate: string): number => {
-  const startDate = moment(initAccountDate);
+  const startDate = moment(initAccountDate).startOf("month");
   //TODO: Reducir el month, solo pruebas
-  const currentDate = moment(); //.add(1, "M");
+  const currentDate = moment().startOf("month"); //.add(1, "M");
 
   return currentDate.diff(startDate, "months");
 };

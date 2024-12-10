@@ -38,4 +38,11 @@ export interface Account {
 export interface PersonPagination {
   limit: number;
   offset: number;
+  mode: ModePagination;
+}
+
+export enum ModePagination {
+  FULL = "full",
+  SIMPLE = "simple",
+  ACTIVE_ONLY = "activeOnly",
 }

@@ -4,6 +4,7 @@ export type containerSymbol = {
   LoanService: symbol;
   EgressService: symbol;
   MetricsService: symbol;
+  BalanceService: symbol;
   MySQLGateway: symbol;
 };
 
@@ -13,6 +14,7 @@ const IDENTIFIERS: containerSymbol = {
   LoanService: Symbol.for("LoanService"),
   EgressService: Symbol.for("EgressService"),
   MetricsService: Symbol.for("MetricsService"),
+  BalanceService: Symbol.for("BalanceService"),
   MySQLGateway: Symbol.for("MySQLGateway"),
 };
 

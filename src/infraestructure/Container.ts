@@ -13,6 +13,8 @@ import { IEgressService } from "../repository/IEgress.service";
 import { EgressService } from "../service/Egress.service";
 import { IMetricsService } from "../repository/IMetrics.service";
 import { MetricsService } from "../service/Metrics.service";
+import { IBalanceService } from "../repository/IBalance.service";
+import { BalanceService } from "../service/Balance.service";
 
 const CONTAINER: Container = new Container();
 
@@ -22,6 +24,7 @@ CONTAINER.bind<IEntryService>(IDENTIFIERS.EntryService).to(EntryService);
 CONTAINER.bind<ILoanService>(IDENTIFIERS.LoanService).to(LoanService);
 CONTAINER.bind<IEgressService>(IDENTIFIERS.EgressService).to(EgressService);
 CONTAINER.bind<IMetricsService>(IDENTIFIERS.MetricsService).to(MetricsService);
+CONTAINER.bind<IBalanceService>(IDENTIFIERS.BalanceService).to(BalanceService);
 
 //Gateways
 CONTAINER.bind<IMySQLGateway>(IDENTIFIERS.MySQLGateway).to(MySQLGateway);
