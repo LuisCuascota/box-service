@@ -9,7 +9,11 @@ import {
   PartnerBalance,
   PartnerEntry,
 } from "../repository/IBalance.service";
-import { IPersonService, Person } from "../repository/IPerson.service";
+import {
+  IPersonService,
+  ModePagination,
+  Person,
+} from "../repository/IPerson.service";
 import {
   buildCol,
   TablesEnum,
@@ -35,7 +39,10 @@ export class BalanceService implements IBalanceService {
   public getPartnerBalance(): Observable<PartnerBalance[]> {
     return of(1).pipe(
       mergeMap(() =>
-        forkJoin([this._personService.getPersons(), this._getEntries()])
+        forkJoin([
+          this._personService.getPersons({ mode: ModePagination.ACTIVE_ONLY }),
+          this._getEntries(),
+        ])
       ),
       map(([person, entries]: [Person[], object[]]) =>
         this._mapHistoricPartnersData(person, entries)

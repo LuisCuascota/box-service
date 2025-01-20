@@ -28,28 +28,29 @@ import {
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import {
-  Counter,
+  Contribution,
+  EntryCounter,
+  CountFilter,
   EntryAmount,
+  EntryAmountDetail,
+  EntryBillDetail,
+  EntryDetail,
+  EntryHeader,
+  EntryPagination,
   EntryType,
   IEntryService,
   NewEntry,
-  EntryHeader,
-  EntryPagination,
-  Contribution,
-  EntryBillDetail,
-  EntryAmountDetail,
-  EntryDetail,
-  CountFilter,
 } from "../repository/IEntry.service";
 import {
   calculateContributionAmount,
   calculateLoanAmount,
 } from "../utils/Entry.utils";
 import { ILoanService, Loan, LoanDetail } from "../repository/ILoan.service";
-import QueryBuilder = Knex.QueryBuilder;
 import { updateEntryEgressStatus } from "../utils/Common.utils";
 import { Account, IPersonService } from "../repository/IPerson.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
+import { EntryBillTypeEnum } from "../infraestructure/RegistryStatusEnum";
+import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
 export class EntryService implements IEntryService {
@@ -68,24 +69,35 @@ export class EntryService implements IEntryService {
     this._personService = personService;
   }
 
-  public getEntryCount(params?: CountFilter): Observable<number> {
+  public getEntryCount(params?: CountFilter): Observable<EntryCounter> {
     return of(1).pipe(
       map(() =>
         this._knex
-          .count(buildCol({ p: TColEntry.NUMBER }, AliasEnum.COUNT))
-          .from({ p: TablesEnum.ENTRY })
+          .count(buildCol({ e: TColEntry.NUMBER }, AliasEnum.COUNT))
+          .sum(buildCol({ d: TColEntryBillDetail.CASH }, AliasEnum.CASH))
+          .sum(
+            buildCol({ d: TColEntryBillDetail.TRANSFER }, AliasEnum.TRANSFER)
+          )
+          .sum(buildCol({ e: TColEntry.AMOUNT }, AliasEnum.TOTAL))
+          .from({ e: TablesEnum.ENTRY })
+          .innerJoin(
+            { d: TablesEnum.ENTRY_BILL_DETAIL },
+            buildCol({ e: TColEntry.NUMBER }),
+            buildCol({ d: TColEntryBillDetail.ENTRY_NUMBER })
+          )
       ),
       map((query: QueryBuilder) => {
-        if (params && params.account)
-          query.where(
-            buildCol({ p: TColEntry.ACCOUNT_NUMBER }),
-            params.account
-          );
+        this._buildEntryFilters(query, params);
 
         return query.toQuery();
       }),
-      mergeMap((query: string) => this._mysql.query<Counter>(query)),
-      map((response: Counter[]) => response[0][AliasEnum.COUNT]),
+      mergeMap((query: string) => this._mysql.query<EntryCounter>(query)),
+      map((response: EntryCounter[]) => ({
+        count: response[0][AliasEnum.COUNT] ?? 0,
+        cash: response[0][AliasEnum.CASH] ?? 0,
+        transfer: response[0][AliasEnum.TRANSFER] ?? 0,
+        total: response[0][AliasEnum.TOTAL] ?? 0,
+      })),
       tag("EntryService | getEntryCount")
     );
   }
@@ -156,8 +168,8 @@ export class EntryService implements IEntryService {
               buildCol({ e: TColEntry.ACCOUNT_NUMBER }),
               buildCol({ p: TColPerson.NAMES }),
               buildCol({ p: TColPerson.SURNAMES }),
-              buildCol({ b: TColEntryBillDetail.CASH }),
-              buildCol({ b: TColEntryBillDetail.TRANSFER })
+              buildCol({ d: TColEntryBillDetail.CASH }),
+              buildCol({ d: TColEntryBillDetail.TRANSFER })
             )
             .from({ e: TablesEnum.ENTRY })
             .innerJoin(
@@ -171,26 +183,20 @@ export class EntryService implements IEntryService {
               buildCol({ a: TColAccount.DNI })
             )
             .innerJoin(
-              { b: TablesEnum.ENTRY_BILL_DETAIL },
+              { d: TablesEnum.ENTRY_BILL_DETAIL },
               buildCol({ e: TColEntry.NUMBER }),
-              buildCol({ b: TColEntryBillDetail.ENTRY_NUMBER })
+              buildCol({ d: TColEntryBillDetail.ENTRY_NUMBER })
             )
         )
       ),
-      mergeMap((query: QueryBuilder) => {
-        if (params.account)
-          query.where(
-            buildCol({ e: TColEntry.ACCOUNT_NUMBER }),
-            params.account
-          );
-
+      map((query: QueryBuilder) => {
+        this._buildEntryFilters(query, params);
         query
           .orderBy(buildCol({ e: TColEntry.NUMBER }), "desc")
           .limit(params.limit)
-          .offset(params.offset)
-          .toQuery();
+          .offset(params.offset);
 
-        return of(query.toQuery());
+        return query.toQuery();
       }),
       mergeMap((query: string) => this._mysql.query<EntryHeader>(query)),
       mergeMap((entryList: EntryHeader[]) => this._setEntryStatus(entryList)),
@@ -254,6 +260,45 @@ export class EntryService implements IEntryService {
       mergeMap((query: string) => this._mysql.query<Contribution>(query)),
       tag("EntryService | getContributionList")
     );
+  }
+
+  private _buildEntryFilters(
+    query: QueryBuilder,
+    params?: EntryPagination | CountFilter
+  ) {
+    if (params && params.account)
+      query.where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), params.account);
+
+    if (params && params.startDate)
+      query.where(buildCol({ e: TColEntry.DATE }), ">=", params.startDate);
+
+    if (params && params.endDate)
+      query.where(buildCol({ e: TColEntry.DATE }), "<=", params.endDate);
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.MIXED
+    ) {
+      query.where(buildCol({ d: TColEntryBillDetail.CASH }), ">", 0);
+      query.where(buildCol({ d: TColEntryBillDetail.TRANSFER }), ">", 0);
+    }
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.CASH
+    ) {
+      query.where(buildCol({ d: TColEntryBillDetail.CASH }), ">", 0);
+    }
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.TRANSFER
+    ) {
+      query.where(buildCol({ d: TColEntryBillDetail.TRANSFER }), ">", 0);
+    }
   }
 
   private _getAmountDetail(number: number): Observable<EntryAmountDetail[]> {

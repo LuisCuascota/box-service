@@ -70,6 +70,7 @@ export enum TColLoan {
   TERM = "term",
   RATE = "rate",
   DEBT = "debt",
+  ENABLED = "enabled",
 }
 
 export enum TColLoanDetail {
@@ -79,6 +80,7 @@ export enum TColLoanDetail {
   FEE_NUMBER = "fee_number",
   ENTRY_NUMBER = "entry_number",
   FEE_VALUE = "fee_value",
+  PAYMENT_DATE = "payment_date",
 }
 
 export enum TColEgress {
@@ -87,6 +89,7 @@ export enum TColEgress {
   PLACE = "place",
   BENEFICIARY = "beneficiary",
   AMOUNT = "amount",
+  TYPE_ID = "type_id",
 }
 
 export enum TColEgressDetail {
@@ -99,6 +102,10 @@ export enum AliasEnum {
   COUNT = "count",
   TOTAL = "total",
   SUM = "sum",
+  CASH = "cash",
+  TRANSFER = "transfer",
+  DEBT = "debt",
+  LOAN_COUNT = "loanCount",
 }
 
 export const buildCol = (

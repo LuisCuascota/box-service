@@ -1,10 +1,18 @@
 import { Observable } from "rxjs";
+import { AliasEnum } from "../infraestructure/Tables.enum";
 
 export interface IEgressService {
-  getEgressCount(): Observable<number>;
+  getEgressCount(params?: EgressCountFilter): Observable<EgressCounter>;
   postNewEgress(newEgress: NewEgress): Observable<boolean>;
   searchEgress(params: EgressPagination): Observable<EgressHeader[]>;
   getEgressDetail(number: number): Observable<EgressDetail>;
+}
+
+export interface EgressCounter {
+  [AliasEnum.COUNT]: number;
+  [AliasEnum.CASH]: number;
+  [AliasEnum.TRANSFER]: number;
+  [AliasEnum.TOTAL]: number;
 }
 
 export interface NewEgress {
@@ -34,6 +42,10 @@ export interface EgressAmountDetail {
 export interface EgressPagination {
   limit: number;
   offset: number;
+  type?: number;
+  startDate?: number;
+  endDate?: number;
+  paymentType?: string;
 }
 
 export interface EgressBillDetail {
@@ -44,4 +56,11 @@ export interface EgressBillDetail {
 export interface EgressDetail {
   billDetail: EgressBillDetail;
   amountDetail: EgressAmountDetail[];
+}
+
+export interface EgressCountFilter {
+  type?: number;
+  startDate?: number;
+  endDate?: number;
+  paymentType?: string;
 }

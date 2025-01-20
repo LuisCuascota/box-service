@@ -3,6 +3,7 @@ import { Handler } from "aws-lambda";
 import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
 import {
+  EgressCounter,
   EgressDetail,
   EgressHeader,
   IEgressService,
@@ -12,7 +13,10 @@ import { processResponse } from "../utils/Verifier.utils";
 const egressService = CONTAINER.get<IEgressService>(IDENTIFIERS.EgressService);
 
 export const count: Handler = (event) => {
-  return processResponse<number>(egressService.getEgressCount(), event);
+  return processResponse<EgressCounter>(
+    egressService.getEgressCount(event.queryStringParameters),
+    event
+  );
 };
 
 export const egress: Handler = (event) => {

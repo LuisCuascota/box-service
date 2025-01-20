@@ -11,7 +11,6 @@ import {
   Observable,
   of,
   switchMap,
-  toArray,
 } from "rxjs";
 import knex, { Knex } from "knex";
 import {
@@ -28,15 +27,19 @@ import {
   EntryLoanData,
   ILoanService,
   Loan,
+  LoanCounter,
   LoanDefinition,
   LoanDetail,
   LoanDetailToPay,
   LoanPagination,
 } from "../repository/ILoan.service";
-import { Counter } from "../repository/IEntry.service";
+import { CountFilter } from "../repository/IEntry.service";
 import QueryBuilder = Knex.QueryBuilder;
-import { checkLoanPaymentsStatus } from "../utils/Loan.utils";
-import { RegistryStatusEnum } from "../infraestructure/RegistryStatusEnum";
+import {
+  DATE_FORMAT,
+  RegistryStatusEnum,
+} from "../infraestructure/RegistryStatusEnum";
+import moment from "moment/moment";
 
 @injectable()
 export class LoanService implements ILoanService {
@@ -46,18 +49,26 @@ export class LoanService implements ILoanService {
     this._mysql = mysql;
   }
 
-  public getLoanCount(): Observable<number> {
+  public getLoanCount(params?: CountFilter): Observable<LoanCounter> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .count(buildCol({ l: TColLoan.NUMBER }, AliasEnum.COUNT))
-            .from({ l: TablesEnum.LOAN })
-            .toQuery()
-        )
+      map(() =>
+        this._knex
+          .count(buildCol({ l: TColLoan.NUMBER }, AliasEnum.COUNT))
+          .sum(buildCol({ l: TColLoan.VALUE }, AliasEnum.TOTAL))
+          .sum(buildCol({ l: TColLoan.DEBT }, AliasEnum.DEBT))
+          .from({ l: TablesEnum.LOAN })
       ),
-      mergeMap((query: string) => this._mysql.query<Counter>(query)),
-      map((response: Counter[]) => response[0][AliasEnum.COUNT]),
+      map((query: QueryBuilder) => {
+        this._buildLoanFilters(query, params);
+
+        return query.toQuery();
+      }),
+      mergeMap((query: string) => this._mysql.query<LoanCounter>(query)),
+      map((response: LoanCounter[]) => ({
+        count: response[0][AliasEnum.COUNT] ?? 0,
+        total: response[0][AliasEnum.TOTAL] ?? 0,
+        debt: response[0][AliasEnum.DEBT] ?? 0,
+      })),
       tag("LoanService | getLoanCount")
     );
   }
@@ -172,7 +183,25 @@ export class LoanService implements ILoanService {
               buildCol({ l: TColLoan.TERM }),
               buildCol({ l: TColLoan.DEBT }),
               buildCol({ p: TColPerson.NAMES }),
-              buildCol({ p: TColPerson.SURNAMES })
+              buildCol({ p: TColPerson.SURNAMES }),
+              this._knex.raw(`
+              CASE 
+                WHEN ${buildCol({ l: TColLoan.IS_END })} = ${true} THEN '${
+                  RegistryStatusEnum.PAID
+                }'
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM ${TablesEnum.LOAN_DETAIL} d
+                  WHERE ${buildCol({ l: TColLoan.NUMBER })} = ${buildCol({
+                    d: TColLoanDetail.LOAN_NUMBER,
+                  })}
+                  AND ${buildCol({ d: TColLoanDetail.IS_PAID })} = ${false}
+                  AND ${buildCol({
+                    d: TColLoanDetail.PAYMENT_DATE,
+                  })} < '${moment().format(DATE_FORMAT)}'
+                ) THEN '${RegistryStatusEnum.LATE}'
+                ELSE '${RegistryStatusEnum.CURRENT}'
+              END AS status`)
             )
             .from({ l: TablesEnum.LOAN })
             .innerJoin(
@@ -187,54 +216,71 @@ export class LoanService implements ILoanService {
             )
         )
       ),
-      mergeMap((query: QueryBuilder) => {
-        if (params.account)
-          query.where(buildCol({ l: TColLoan.ACCOUNT }), params.account);
+      map((query: QueryBuilder) => {
+        this._buildLoanFilters(query, params);
+        query.orderBy(buildCol({ l: TColLoan.NUMBER }), "desc");
 
-        query
-          .orderBy(buildCol({ l: TColLoan.NUMBER }), "desc")
-          .limit(params.limit)
-          .offset(params.offset)
-          .toQuery();
+        if (params && params.limit && params.offset)
+          query.limit(params.limit).offset(params.offset);
 
-        return of(query.toQuery());
+        return query.toQuery();
       }),
       mergeMap((query: string) => this._mysql.query<Loan>(query)),
-      mergeMap((loanList: Loan[]) => this._setLoanStatus(loanList)),
       tag("LoanService | searchLoan")
     );
   }
 
-  private _setLoanStatus = (loanList: Loan[]): Observable<Loan[]> => {
-    return from(loanList).pipe(
-      concatMap((loan: Loan) =>
-        iif(
-          () => loan.is_end,
-          of({ ...loan, status: RegistryStatusEnum.PAID }),
-          this._verifyLoanStatus(loan)
-        )
-      ),
-      toArray()
-    );
-  };
+  private _buildLoanFilters(
+    query: QueryBuilder,
+    params?: LoanPagination | CountFilter
+  ) {
+    if (params) {
+      if (params.paymentType && params.paymentType === RegistryStatusEnum.LATE)
+        query
+          .where(buildCol({ l: TColLoan.IS_END }), false)
+          .whereExists((q) => {
+            this._buildLoanDetailFilters(q);
+          });
 
-  private _verifyLoanStatus = (loan: Loan) => {
-    return this.getLoanDetail(loan.number).pipe(
-      map((loanDetails: LoanDetail[]) => {
-        const isDelayed = checkLoanPaymentsStatus(loanDetails);
+      if (
+        params.paymentType &&
+        params.paymentType === RegistryStatusEnum.CURRENT
+      )
+        query
+          .where(buildCol({ l: TColLoan.IS_END }), false)
+          .whereNotExists((q) => {
+            this._buildLoanDetailFilters(q);
+          });
 
-        if (isDelayed) {
-          loan.status = RegistryStatusEnum.LATE;
+      if (params.paymentType && params.paymentType === RegistryStatusEnum.PAID)
+        query.where(buildCol({ l: TColLoan.IS_END }), true);
 
-          return loan;
-        }
+      if (params.account)
+        query.where(buildCol({ l: TColLoan.ACCOUNT }), params.account);
 
-        loan.status = RegistryStatusEnum.CURRENT;
+      if (params.startDate)
+        query.where(buildCol({ l: TColLoan.DATE }), ">=", params.startDate);
 
-        return loan;
-      })
-    );
-  };
+      if (params.endDate)
+        query.where(buildCol({ l: TColLoan.DATE }), "<=", params.endDate);
+    }
+  }
+
+  private _buildLoanDetailFilters(query: QueryBuilder) {
+    query
+      .select(1)
+      .from({ d: TablesEnum.LOAN_DETAIL })
+      .whereRaw(
+        `${buildCol({ l: TColLoan.NUMBER })}
+                =${buildCol({ d: TColLoanDetail.LOAN_NUMBER })}`
+      )
+      .where(buildCol({ d: TColLoanDetail.IS_PAID }), false)
+      .where(
+        buildCol({ d: TColLoanDetail.PAYMENT_DATE }),
+        "<",
+        moment().format(DATE_FORMAT)
+      );
+  }
 
   private _saveLoanHead = (head: Loan) => {
     return of(1).pipe(

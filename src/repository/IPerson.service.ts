@@ -25,7 +25,8 @@ export interface Person {
   current_saving: number;
   start_amount: number;
   creation_date: string;
-  status: string;
+  savingStatus: string;
+  loanStatus: string;
 }
 
 export interface Account {

@@ -3,7 +3,7 @@ import { AliasEnum } from "../infraestructure/Tables.enum";
 import { EntryLoanData, LoanDefinition } from "./ILoan.service";
 
 export interface IEntryService {
-  getEntryCount(params?: CountFilter): Observable<number>;
+  getEntryCount(params?: CountFilter): Observable<EntryCounter>;
   getEntryTypes(): Observable<EntryType[]>;
   getEntryAmounts(account: number): Observable<EntryAmount[]>;
   postNewEntry(newEntry: NewEntry): Observable<boolean>;
@@ -12,8 +12,11 @@ export interface IEntryService {
   getContributionList(account: number): Observable<Contribution[]>;
 }
 
-export interface Counter {
+export interface EntryCounter {
   [AliasEnum.COUNT]: number;
+  [AliasEnum.CASH]: number;
+  [AliasEnum.TRANSFER]: number;
+  [AliasEnum.TOTAL]: number;
 }
 
 export interface Total {
@@ -60,6 +63,9 @@ export interface EntryPagination {
   limit: number;
   offset: number;
   account?: number;
+  startDate?: number;
+  endDate?: number;
+  paymentType?: string;
 }
 
 export interface Contribution {
@@ -81,4 +87,5 @@ export interface CountFilter {
   account?: number;
   startDate?: number;
   endDate?: number;
+  paymentType?: string;
 }

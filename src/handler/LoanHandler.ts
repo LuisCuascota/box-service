@@ -2,13 +2,21 @@ import "reflect-metadata";
 import { Handler } from "aws-lambda";
 import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
-import { ILoanService, Loan, LoanDetail } from "../repository/ILoan.service";
+import {
+  ILoanService,
+  Loan,
+  LoanCounter,
+  LoanDetail,
+} from "../repository/ILoan.service";
 import { processResponse } from "../utils/Verifier.utils";
 
 const loanService = CONTAINER.get<ILoanService>(IDENTIFIERS.LoanService);
 
 export const count: Handler = (event) => {
-  return processResponse<number>(loanService.getLoanCount(), event);
+  return processResponse<LoanCounter>(
+    loanService.getLoanCount(event.queryStringParameters),
+    event
+  );
 };
 
 export const loan: Handler = (event) => {

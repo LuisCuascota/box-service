@@ -4,6 +4,7 @@ import { CONTAINER } from "../infraestructure/Container";
 import { IDENTIFIERS } from "../infraestructure/Identifiers";
 import {
   Contribution,
+  EntryCounter,
   EntryAmount,
   EntryDetail,
   EntryHeader,
@@ -15,7 +16,7 @@ import { processResponse } from "../utils/Verifier.utils";
 const entryService = CONTAINER.get<IEntryService>(IDENTIFIERS.EntryService);
 
 export const count: Handler = (event) => {
-  return processResponse<number>(
+  return processResponse<EntryCounter>(
     entryService.getEntryCount(event.queryStringParameters),
     event
   );

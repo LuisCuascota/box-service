@@ -1,7 +1,9 @@
 import { Observable } from "rxjs";
+import { CountFilter } from "./IEntry.service";
+import { AliasEnum } from "../infraestructure/Tables.enum";
 
 export interface ILoanService {
-  getLoanCount(): Observable<number>;
+  getLoanCount(params?: CountFilter): Observable<LoanCounter>;
   getLoanByAccount(account: number): Observable<Loan | null>;
   getLoanDetail(loanNumber: number): Observable<LoanDetail[]>;
   updateLoanDetail(details: LoanDetailToPay[]): Observable<boolean>;
@@ -44,7 +46,16 @@ export interface EntryLoanData {
 }
 
 export interface LoanPagination {
-  limit: number;
-  offset: number;
+  limit?: number;
+  offset?: number;
   account?: number;
+  startDate?: number;
+  endDate?: number;
+  paymentType?: string;
+}
+
+export interface LoanCounter {
+  [AliasEnum.COUNT]: number;
+  [AliasEnum.TOTAL]: number;
+  [AliasEnum.DEBT]: number;
 }

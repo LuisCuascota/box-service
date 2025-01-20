@@ -24,20 +24,28 @@ import {
   buildCol,
   TablesEnum,
   TColAccount,
+  TColLoan,
   TColPerson,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
-import { Counter } from "../repository/IEntry.service";
-import { updatePersonStatus } from "../utils/Common.utils";
+import { EntryCounter } from "../repository/IEntry.service";
+import { updateLoanStatus, updateSavingStatus } from "../utils/Common.utils";
 import moment from "moment";
 import QueryBuilder = Knex.QueryBuilder;
+import { ILoanService, Loan } from "../repository/ILoan.service";
 
 @injectable()
 export class PersonService implements IPersonService {
   private readonly _knex: Knex = knex({ client: "mysql" });
   private readonly _mysql: IMySQLGateway;
-  constructor(@inject(IDENTIFIERS.MySQLGateway) mysql: IMySQLGateway) {
+  private readonly _loanService: ILoanService;
+
+  constructor(
+    @inject(IDENTIFIERS.MySQLGateway) mysql: IMySQLGateway,
+    @inject(IDENTIFIERS.LoanService) loanService: ILoanService
+  ) {
     this._mysql = mysql;
+    this._loanService = loanService;
   }
 
   public getPersons(params?: PersonPagination): Observable<Person[]> {
@@ -65,6 +73,27 @@ export class PersonService implements IPersonService {
           )
       ),
       map((query: QueryBuilder) => {
+        if (params && params.mode && params.mode === ModePagination.FULL)
+          query
+            .count(buildCol({ l: TColLoan.NUMBER }, AliasEnum.LOAN_COUNT))
+            .leftJoin({ l: TablesEnum.LOAN }, (query) => {
+              query
+                .on(
+                  buildCol({ l: TColLoan.ACCOUNT }),
+                  "=",
+                  buildCol({ a: TColAccount.NUMBER })
+                )
+                .andOn(
+                  buildCol({ l: TColLoan.ENABLED }),
+                  "=",
+                  this._knex.raw("?", [true])
+                );
+            })
+            .groupBy(
+              buildCol({ p: TColPerson.DNI }),
+              buildCol({ a: TColAccount.NUMBER })
+            );
+
         if (params && params.mode && params.mode === ModePagination.ACTIVE_ONLY)
           query.where(buildCol({ a: TColAccount.IS_DISABLED }), false);
 
@@ -100,8 +129,8 @@ export class PersonService implements IPersonService {
             .toQuery()
         )
       ),
-      mergeMap((query: string) => this._mysql.query<Counter>(query)),
-      map((response: Counter[]) => response[0][AliasEnum.COUNT]),
+      mergeMap((query: string) => this._mysql.query<EntryCounter>(query)),
+      map((response: EntryCounter[]) => response[0][AliasEnum.COUNT]),
       tag("PersonService | getPersonsCount")
     );
   }
@@ -206,10 +235,23 @@ export class PersonService implements IPersonService {
 
   private _setAccountStatus = (accountList: Person[]): Observable<Person[]> => {
     return from(accountList).pipe(
-      concatMap((person: Person) => updatePersonStatus(person)),
+      concatMap((person: Person) => updateSavingStatus(person)),
+      concatMap((person: Person) => this._updateLoanStatus(person)),
       toArray()
     );
   };
+
+  private _updateLoanStatus(person: Person): Observable<Person> {
+    return of(1).pipe(
+      mergeMap(() => this._loanService.searchLoan({ account: person.number })),
+      map((loanList: Loan[]) => updateLoanStatus(loanList)),
+      map((loanStatus: string) => {
+        person.loanStatus = loanStatus;
+
+        return person;
+      })
+    );
+  }
 
   private _savePerson = (person: Person) => {
     return of(1).pipe(

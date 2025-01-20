@@ -21,10 +21,11 @@ import {
   TColEgressDetail,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
-import { Counter } from "../repository/IEntry.service";
 import {
   EgressAmountDetail,
   EgressBillDetail,
+  EgressCounter,
+  EgressCountFilter,
   EgressDetail,
   EgressHeader,
   EgressPagination,
@@ -32,6 +33,8 @@ import {
   NewEgress,
 } from "../repository/IEgress.service";
 import { updateEntryEgressStatus } from "../utils/Common.utils";
+import QueryBuilder = Knex.QueryBuilder;
+import { EntryBillTypeEnum } from "../infraestructure/RegistryStatusEnum";
 
 @injectable()
 export class EgressService implements IEgressService {
@@ -42,18 +45,36 @@ export class EgressService implements IEgressService {
     this._mysql = mysql;
   }
 
-  public getEgressCount(): Observable<number> {
+  public getEgressCount(params?: EgressCountFilter): Observable<EgressCounter> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .count(buildCol({ e: TColEgress.NUMBER }, AliasEnum.COUNT))
-            .from({ e: TablesEnum.EGRESS })
-            .toQuery()
-        )
+      map(() =>
+        this._knex
+          .count(buildCol({ e: TColEgress.NUMBER }, AliasEnum.COUNT))
+          .sum(buildCol({ d: TColEgressBillDetail.CASH }, AliasEnum.CASH))
+          .sum(
+            buildCol({ d: TColEgressBillDetail.TRANSFER }, AliasEnum.TRANSFER)
+          )
+          .sum(buildCol({ e: TColEgress.AMOUNT }, AliasEnum.TOTAL))
+
+          .from({ e: TablesEnum.EGRESS })
+          .innerJoin(
+            { d: TablesEnum.EGRESS_BILL_DETAIL },
+            buildCol({ e: TColEgress.NUMBER }),
+            buildCol({ d: TColEgressBillDetail.EGRESS_NUMBER })
+          )
       ),
-      mergeMap((query: string) => this._mysql.query<Counter>(query)),
-      map((response: Counter[]) => response[0][AliasEnum.COUNT]),
+      map((query: QueryBuilder) => {
+        this._buildEgressFilters(query, params);
+
+        return query.toQuery();
+      }),
+      mergeMap((query: string) => this._mysql.query<EgressCounter>(query)),
+      map((response: EgressCounter[]) => ({
+        count: response[0][AliasEnum.COUNT] ?? 0,
+        cash: response[0][AliasEnum.CASH] ?? 0,
+        transfer: response[0][AliasEnum.TRANSFER] ?? 0,
+        total: response[0][AliasEnum.TOTAL] ?? 0,
+      })),
       tag("EgressService | getEgressCount")
     );
   }
@@ -75,30 +96,35 @@ export class EgressService implements IEgressService {
 
   public searchEgress(params: EgressPagination): Observable<EgressHeader[]> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .select(
-              buildCol({ e: TColEgress.NUMBER }),
-              buildCol({ e: TColEgress.DATE }),
-              buildCol({ e: TColEgress.PLACE }),
-              buildCol({ e: TColEgress.AMOUNT }),
-              buildCol({ e: TColEgress.BENEFICIARY }),
-              buildCol({ b: TColEgressBillDetail.CASH }),
-              buildCol({ b: TColEgressBillDetail.TRANSFER })
-            )
-            .from({ e: TablesEnum.EGRESS })
-            .innerJoin(
-              { b: TablesEnum.EGRESS_BILL_DETAIL },
-              buildCol({ e: TColEgress.NUMBER }),
-              buildCol({ b: TColEgressBillDetail.EGRESS_NUMBER })
-            )
-            .orderBy(buildCol({ e: TColEgress.NUMBER }), "desc")
-            .limit(params.limit)
-            .offset(params.offset)
-            .toQuery()
-        )
+      map(() =>
+        this._knex
+          .select(
+            buildCol({ e: TColEgress.NUMBER }),
+            buildCol({ e: TColEgress.DATE }),
+            buildCol({ e: TColEgress.PLACE }),
+            buildCol({ e: TColEgress.AMOUNT }),
+            buildCol({ e: TColEgress.BENEFICIARY }),
+            buildCol({ d: TColEgressBillDetail.CASH }),
+            buildCol({ d: TColEgressBillDetail.TRANSFER })
+          )
+          .from({ e: TablesEnum.EGRESS })
+          .innerJoin(
+            { d: TablesEnum.EGRESS_BILL_DETAIL },
+            buildCol({ e: TColEgress.NUMBER }),
+            buildCol({ d: TColEgressBillDetail.EGRESS_NUMBER })
+          )
       ),
+      map((query: QueryBuilder) => {
+        this._buildEgressFilters(query, params);
+
+        query
+          .orderBy(buildCol({ e: TColEgress.NUMBER }), "desc")
+          .limit(params.limit)
+          .offset(params.offset);
+
+        return query.toQuery();
+      }),
+
       mergeMap((query: string) => this._mysql.query<EgressHeader>(query)),
       mergeMap((egressList: EgressHeader[]) =>
         this._setEgressStatus(egressList)
@@ -135,6 +161,45 @@ export class EgressService implements IEgressService {
       ),
       tag("EgressService | getEgressDetail")
     );
+  }
+
+  private _buildEgressFilters(
+    query: QueryBuilder,
+    params?: EgressPagination | EgressCountFilter
+  ) {
+    if (params && params.type)
+      query.where(buildCol({ e: TColEgress.TYPE_ID }), params.type);
+
+    if (params && params.startDate)
+      query.where(buildCol({ e: TColEgress.DATE }), ">=", params.startDate);
+
+    if (params && params.endDate)
+      query.where(buildCol({ e: TColEgress.DATE }), "<=", params.endDate);
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.MIXED
+    ) {
+      query.where(buildCol({ d: TColEgressBillDetail.CASH }), ">", 0);
+      query.where(buildCol({ d: TColEgressBillDetail.TRANSFER }), ">", 0);
+    }
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.CASH
+    ) {
+      query.where(buildCol({ d: TColEgressBillDetail.CASH }), ">", 0);
+    }
+
+    if (
+      params &&
+      params.paymentType &&
+      params.paymentType === EntryBillTypeEnum.TRANSFER
+    ) {
+      query.where(buildCol({ d: TColEgressBillDetail.TRANSFER }), ">", 0);
+    }
   }
 
   private _getAmountDetail(number: number): Observable<EgressAmountDetail[]> {
