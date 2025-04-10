@@ -5,9 +5,13 @@ import { forkJoin, map, mergeMap, Observable, of } from "rxjs";
 import knex, { Knex } from "knex";
 import { tag } from "rxjs-spy/operators";
 import {
+  BalanceEntry,
+  BalanceFilters,
   IBalanceService,
   PartnerBalance,
   PartnerEntry,
+  Period,
+  PeriodAccount,
 } from "../repository/IBalance.service";
 import {
   IPersonService,
@@ -19,8 +23,11 @@ import {
   TablesEnum,
   TColDetail,
   TColEntry,
+  TColPeriod,
+  TColPeriodAccount,
 } from "../infraestructure/Tables.enum";
 import moment from "moment/moment";
+import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
 export class BalanceService implements IBalanceService {
@@ -36,49 +43,103 @@ export class BalanceService implements IBalanceService {
     this._personService = personService;
   }
 
-  public getPartnerBalance(): Observable<PartnerBalance[]> {
+  public getPartnerBalance(
+    filter: BalanceFilters
+  ): Observable<PartnerBalance[]> {
     return of(1).pipe(
-      mergeMap(() =>
+      mergeMap(() => this.getPeriodList(filter)),
+      mergeMap((period: Period[]) =>
         forkJoin([
           this._personService.getPersons({ mode: ModePagination.ACTIVE_ONLY }),
-          this._getEntries(),
+          this._getEntries(period[0]),
+          this.getPeriodAccountList(period[0]),
+          of(period[0]),
         ])
       ),
-      map(([person, entries]: [Person[], object[]]) =>
-        this._mapHistoricPartnersData(person, entries)
+      map(
+        ([person, entries, periodAccount, period]: [
+          Person[],
+          BalanceEntry[],
+          PeriodAccount[],
+          Period,
+        ]) =>
+          this._mapHistoricPartnersData(person, entries, periodAccount, period)
       ),
       tag("BalanceService | getPartnerBalance")
     );
   }
 
-  private _getEntries(): Observable<object[]> {
+  public getPeriodList(filter?: BalanceFilters): Observable<Period[]> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .select(
-              buildCol({ e: TColEntry.NUMBER }),
-              buildCol({ e: TColEntry.ACCOUNT_NUMBER }),
-              buildCol({ e: TColEntry.DATE }),
-              buildCol({ d: TColDetail.VALUE })
-            )
-            .from({ e: TablesEnum.ENTRY })
-            .innerJoin(
-              { d: TablesEnum.ENTRY_DETAIL },
-              buildCol({ e: TColEntry.NUMBER }),
-              buildCol({ d: TColDetail.ENTRY_NUMBER })
-            )
-            .where(buildCol({ d: TColDetail.TYPE_ID }), 8)
-            .toQuery()
-        )
+      map(() =>
+        this._knex
+          .select(
+            buildCol({ p: TColPeriod.ID }),
+            buildCol({ p: TColPeriod.START_DATE }),
+            buildCol({ p: TColPeriod.END_DATE }),
+            buildCol({ p: TColPeriod.ENABLED }),
+            buildCol({ p: TColPeriod.INIT_CASH }),
+            buildCol({ p: TColPeriod.INIT_TRANSFER })
+          )
+          .from({ p: TablesEnum.PERIOD })
       ),
-      mergeMap((query: string) => this._mysql.query<object>(query))
+      map((query: QueryBuilder) => {
+        if (filter && filter.period)
+          query.where(buildCol({ p: TColPeriod.ID }), filter.period);
+
+        return query.toQuery();
+      }),
+      mergeMap((query: string) => this._mysql.query<Period>(query))
+    );
+  }
+
+  public getPeriodAccountList(period: Period): Observable<PeriodAccount[]> {
+    return of(1).pipe(
+      map(() =>
+        this._knex
+          .select()
+          .from({ p: TablesEnum.PERIOD_ACCOUNT })
+          .where(buildCol({ p: TColPeriodAccount.PERIOD_ID }), period.id)
+          .toQuery()
+      ),
+      mergeMap((query: string) => this._mysql.query<PeriodAccount>(query))
+    );
+  }
+
+  private _getEntries(period: Period): Observable<BalanceEntry[]> {
+    return of(1).pipe(
+      map(() =>
+        this._knex
+          .select(
+            buildCol({ e: TColEntry.NUMBER }),
+            buildCol({ e: TColEntry.ACCOUNT_NUMBER }),
+            buildCol({ e: TColEntry.DATE }),
+            buildCol({ d: TColDetail.VALUE })
+          )
+          .from({ e: TablesEnum.ENTRY })
+          .innerJoin(
+            { d: TablesEnum.ENTRY_DETAIL },
+            buildCol({ e: TColEntry.NUMBER }),
+            buildCol({ d: TColDetail.ENTRY_NUMBER })
+          )
+          .whereIn(buildCol({ d: TColDetail.TYPE_ID }), [8, 11])
+          .where(buildCol({ e: TColEntry.PERIOD }), period.id)
+      ),
+      map((query: QueryBuilder) => {
+        if (period.end_date)
+          query.where(buildCol({ e: TColEntry.DATE }), "<=", period.end_date);
+
+        return query.toQuery();
+      }),
+      mergeMap((query: string) => this._mysql.query<BalanceEntry>(query))
     );
   }
 
   private _mapHistoricPartnersData(
     person: Person[],
-    entries: object[]
+    entries: BalanceEntry[],
+    periodAccountList: PeriodAccount[],
+    period: Period
   ): PartnerBalance[] {
     let totalParticipationRate = 0;
 
@@ -86,40 +147,61 @@ export class BalanceService implements IBalanceService {
       const partnerEntries = entries.filter(
         (entry) => entry.account_number === person.number
       );
-      const entriesBuild = this._buildHistoricEntries(partnerEntries);
+      const partnerPeriodData = periodAccountList.find(
+        (account) => account.account_id === person.number
+      );
+      const entriesBuild = this._buildHistoricEntries(
+        partnerEntries,
+        period,
+        partnerPeriodData
+      );
       const participationRate = entriesBuild.reduce(
         (sum, entry) => sum + entry.value * entry.monthCount,
         0
       );
+
+      let partnerSaving = partnerEntries.reduce(
+        (sum, entry) => sum + entry.value,
+        0
+      );
+
+      if (partnerPeriodData) partnerSaving += partnerPeriodData.start_amount;
 
       totalParticipationRate += participationRate;
 
       return {
         account: person.number!,
         names: `${person.names} ${person.surnames}`,
-        currentSaving: person.current_saving,
+        currentSaving: partnerSaving,
         entries: entriesBuild,
         participationRate,
       };
     });
 
-    return initialHistoric.map((balace: PartnerBalance) => ({
-      ...balace,
+    return initialHistoric.map((balance: PartnerBalance) => ({
+      ...balance,
       participationPercentage:
-        balace.participationRate / totalParticipationRate,
+        balance.participationRate / totalParticipationRate,
     }));
   }
 
-  private _buildHistoricEntries(entries: object[]) {
-    const monthCount = this._calculateHistoricMonthsCount();
+  private _buildHistoricEntries(
+    entries: BalanceEntry[],
+    period: Period,
+    periodAccount?: PeriodAccount
+  ): PartnerEntry[] {
+    const monthCount = this._calculateHistoricMonthsCount(
+      period.start_date,
+      period.end_date
+    );
 
-    const historicEntries: PartnerEntry[] = this._createEmptyHistoric(
-      monthCount
-    ).map((entry, index) => {
-      const historicDate = moment()
-        .subtract(monthCount - index - 1, "months")
+    return this._createEmptyHistoric(monthCount).map((entry, index) => {
+      const historicDate = (
+        period.end_date ? moment(period.end_date) : moment()
+      )
+        .subtract(monthCount - index, "months")
         .startOf("month");
-      const value = entries
+      let value = entries
         .filter(
           (entry) =>
             moment(entry.date).month() === historicDate.month() &&
@@ -127,32 +209,31 @@ export class BalanceService implements IBalanceService {
         )
         .reduce((sum, entry) => sum + entry.value, 0);
 
+      if (index === 0 && periodAccount) value += periodAccount.start_amount;
+
       return {
         value: value,
         date: historicDate.format("YYYY-MM-DD"),
-        monthCount: monthCount - index - 1,
+        monthCount: monthCount - index,
       };
     });
-
-    return historicEntries;
   }
 
   private _createEmptyHistoric(monthCount: number): PartnerEntry[] {
-    const entriesClean: PartnerEntry[] = Array(monthCount).fill({
+    return Array(monthCount + 1).fill({
       value: 0,
       date: "",
       monthCount: 0,
     });
-
-    return entriesClean;
   }
 
-  private _calculateHistoricMonthsCount(): number {
-    const startPeriod = "2022-07-02";
-    const init = moment(startPeriod);
-    const current = moment();
-    const monthCount = current.diff(init, "months") + 1;
+  private _calculateHistoricMonthsCount(
+    startPeriod: string,
+    endPeriod?: string
+  ): number {
+    const init = moment(startPeriod).startOf("month");
+    const current = endPeriod ? moment(endPeriod) : moment();
 
-    return monthCount;
+    return current.startOf("month").diff(init, "months");
   }
 }

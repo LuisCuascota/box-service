@@ -19,6 +19,7 @@ import {
   TColEgress,
   TColEgressBillDetail,
   TColEgressDetail,
+  TColEntry,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
 import {
@@ -84,10 +85,11 @@ export class EgressService implements IEgressService {
       mergeMap(() => this._saveEgressHead(newEgress.header)),
       mergeMap(() => this._saveEgressDetail(newEgress.detail)),
       mergeMap(() =>
-        this._saveEgressBillDetail(
-          newEgress.header.number,
-          newEgress.billDetail
-        )
+        this._saveEgressBillDetail(newEgress.header.number, {
+          ...newEgress.billDetail,
+          date: newEgress.header.date,
+          period_id: newEgress.header.period_id,
+        })
       ),
       map(() => true),
       tag("EgressService | postNewEgress")
@@ -167,6 +169,9 @@ export class EgressService implements IEgressService {
     query: QueryBuilder,
     params?: EgressPagination | EgressCountFilter
   ) {
+    if (params && params.period)
+      query.where(buildCol({ e: TColEntry.PERIOD }), params.period);
+
     if (params && params.type)
       query.where(buildCol({ e: TColEgress.TYPE_ID }), params.type);
 

@@ -165,6 +165,16 @@ functions:
             origin: "*"
             headers:
               - Authorization
+  updateLoan:
+    handler: src/handler/LoanHandler.update
+    events:
+      - http:
+          path: api/v1/loan
+          method: PUT
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
   searchLoans:
     handler: src/handler/LoanHandler.search
     events:
@@ -250,6 +260,16 @@ functions:
     events:
       - http:
           path: api/v1/balance
+          method: GET
+          cors:
+            origin: "*"
+            headers:
+              - Authorization
+  getPeriodList:
+    handler: src/handler/BalanceHandler.periodList
+    events:
+      - http:
+          path: api/v1/balance/period
           method: GET
           cors:
             origin: "*"

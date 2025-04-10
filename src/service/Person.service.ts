@@ -24,12 +24,15 @@ import {
   buildCol,
   TablesEnum,
   TColAccount,
-  TColLoan,
   TColPerson,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
-import { EntryCounter } from "../repository/IEntry.service";
-import { updateLoanStatus, updateSavingStatus } from "../utils/Common.utils";
+import { Contribution, EntryCounter } from "../repository/IEntry.service";
+import {
+  getContributionListQuery,
+  updateLoanStatus,
+  updateSavingStatus,
+} from "../utils/Common.utils";
 import moment from "moment";
 import QueryBuilder = Knex.QueryBuilder;
 import { ILoanService, Loan } from "../repository/ILoan.service";
@@ -73,27 +76,6 @@ export class PersonService implements IPersonService {
           )
       ),
       map((query: QueryBuilder) => {
-        if (params && params.mode && params.mode === ModePagination.FULL)
-          query
-            .count(buildCol({ l: TColLoan.NUMBER }, AliasEnum.LOAN_COUNT))
-            .leftJoin({ l: TablesEnum.LOAN }, (query) => {
-              query
-                .on(
-                  buildCol({ l: TColLoan.ACCOUNT }),
-                  "=",
-                  buildCol({ a: TColAccount.NUMBER })
-                )
-                .andOn(
-                  buildCol({ l: TColLoan.ENABLED }),
-                  "=",
-                  this._knex.raw("?", [true])
-                );
-            })
-            .groupBy(
-              buildCol({ p: TColPerson.DNI }),
-              buildCol({ a: TColAccount.NUMBER })
-            );
-
         if (params && params.mode && params.mode === ModePagination.ACTIVE_ONLY)
           query.where(buildCol({ a: TColAccount.IS_DISABLED }), false);
 
@@ -235,7 +217,7 @@ export class PersonService implements IPersonService {
 
   private _setAccountStatus = (accountList: Person[]): Observable<Person[]> => {
     return from(accountList).pipe(
-      concatMap((person: Person) => updateSavingStatus(person)),
+      concatMap((person: Person) => this._updateSavingStatus(person)),
       concatMap((person: Person) => this._updateLoanStatus(person)),
       toArray()
     );
@@ -244,9 +226,31 @@ export class PersonService implements IPersonService {
   private _updateLoanStatus(person: Person): Observable<Person> {
     return of(1).pipe(
       mergeMap(() => this._loanService.searchLoan({ account: person.number })),
-      map((loanList: Loan[]) => updateLoanStatus(loanList)),
+      map((loanList: Loan[]) => {
+        person.loanCount = loanList.length;
+
+        return updateLoanStatus(loanList);
+      }),
       map((loanStatus: string) => {
         person.loanStatus = loanStatus;
+
+        return person;
+      })
+    );
+  }
+
+  private _updateSavingStatus(person: Person): Observable<Person> {
+    return of(1).pipe(
+      mergeMap(() => updateSavingStatus(person)),
+      mergeMap(() =>
+        getContributionListQuery(this._knex, person.number!, [11])
+      ),
+      mergeMap((query: string) => this._mysql.query<Contribution>(query)),
+      map((contributionList: Contribution[]) => {
+        person.current_saving += contributionList.reduce(
+          (sum, contribution) => sum + contribution.value,
+          0
+        );
 
         return person;
       })

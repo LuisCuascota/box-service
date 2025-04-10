@@ -1,5 +1,5 @@
-import { EntryHeader } from "../repository/IEntry.service";
-import { map, Observable, of } from "rxjs";
+import { Contribution, EntryHeader } from "../repository/IEntry.service";
+import { map, mergeMap, Observable, of } from "rxjs";
 import {
   AccountStatusEnum,
   EntryBillTypeEnum,
@@ -8,7 +8,16 @@ import {
 import { EgressHeader } from "../repository/IEgress.service";
 import { Person } from "../repository/IPerson.service";
 import { getContributionsToPay } from "./Entry.utils";
-import { Loan } from "../repository/ILoan.service";
+import { Loan, LoanDetail } from "../repository/ILoan.service";
+import {
+  buildCol,
+  TablesEnum,
+  TColDetail,
+  TColEntry,
+} from "../infraestructure/Tables.enum";
+import { tag } from "rxjs-spy/cjs/operators";
+import { Knex } from "knex";
+import { IMySQLGateway } from "../repository/IMySQL.gateway";
 
 export const updateEntryEgressStatus = (
   entry: EntryHeader | EgressHeader
@@ -69,4 +78,44 @@ export const updateLoanStatus = (loanList: Loan[]): string => {
   else if (loanList.every((item) => item.status === RegistryStatusEnum.PAID))
     return RegistryStatusEnum.FREE;
   else return RegistryStatusEnum.FREE;
+};
+
+export const getContributionListQuery = (
+  knex: Knex,
+  account: number,
+  types?: number[]
+): Observable<string> => {
+  return of(1).pipe(
+    mergeMap(() =>
+      of(
+        knex
+          .select(
+            buildCol({ e: TColEntry.DATE }),
+            buildCol({ e: TColEntry.NUMBER }),
+            buildCol({ d: TColDetail.VALUE }),
+            buildCol({ d: TColDetail.TYPE_ID })
+          )
+          .from({ d: TablesEnum.ENTRY_DETAIL })
+          .innerJoin({ e: TablesEnum.ENTRY }, (builder) =>
+            builder.on(
+              buildCol({ e: TColEntry.NUMBER }),
+              "=",
+              buildCol({ d: TColDetail.ENTRY_NUMBER })
+            )
+          )
+          .whereIn(buildCol({ d: TColDetail.TYPE_ID }), types ? types : [8, 11])
+          .where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), account)
+          .toQuery()
+      )
+    )
+  );
+};
+
+export const isDisabledLoanFee = (fee: LoanDetail): boolean => {
+  return (
+    fee.fee_total === 0 &&
+    fee.balance_after_pay === 0 &&
+    fee.interest === 0 &&
+    fee.fee_value === 0
+  );
 };

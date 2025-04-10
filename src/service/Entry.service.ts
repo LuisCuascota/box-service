@@ -46,7 +46,10 @@ import {
   calculateLoanAmount,
 } from "../utils/Entry.utils";
 import { ILoanService, Loan, LoanDetail } from "../repository/ILoan.service";
-import { updateEntryEgressStatus } from "../utils/Common.utils";
+import {
+  getContributionListQuery,
+  updateEntryEgressStatus,
+} from "../utils/Common.utils";
 import { Account, IPersonService } from "../repository/IPerson.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import { EntryBillTypeEnum } from "../infraestructure/RegistryStatusEnum";
@@ -134,7 +137,11 @@ export class EntryService implements IEntryService {
         this._saveEntryDetail(newEntry.detail, newEntry.header.account_number)
       ),
       mergeMap(() =>
-        this._saveEntryBillDetail(newEntry.header.number, newEntry.billDetail)
+        this._saveEntryBillDetail(newEntry.header.number, {
+          ...newEntry.billDetail,
+          date: newEntry.header.date,
+          period_id: newEntry.header.period_id,
+        })
       ),
       mergeMap(() => {
         if (newEntry.entryLoanData)
@@ -236,27 +243,7 @@ export class EntryService implements IEntryService {
 
   public getContributionList(account: number): Observable<Contribution[]> {
     return of(1).pipe(
-      mergeMap(() =>
-        of(
-          this._knex
-            .select(
-              buildCol({ e: TColEntry.DATE }),
-              buildCol({ e: TColEntry.NUMBER }),
-              buildCol({ d: TColDetail.VALUE })
-            )
-            .from({ d: TablesEnum.ENTRY_DETAIL })
-            .innerJoin({ e: TablesEnum.ENTRY }, (builder) =>
-              builder.on(
-                buildCol({ e: TColEntry.NUMBER }),
-                "=",
-                buildCol({ d: TColDetail.ENTRY_NUMBER })
-              )
-            )
-            .where(buildCol({ d: TColDetail.TYPE_ID }), 8)
-            .where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), account)
-            .toQuery()
-        )
-      ),
+      mergeMap(() => getContributionListQuery(this._knex, account)),
       mergeMap((query: string) => this._mysql.query<Contribution>(query)),
       tag("EntryService | getContributionList")
     );
@@ -266,6 +253,9 @@ export class EntryService implements IEntryService {
     query: QueryBuilder,
     params?: EntryPagination | CountFilter
   ) {
+    if (params && params.period)
+      query.where(buildCol({ e: TColEntry.PERIOD }), params.period);
+
     if (params && params.account)
       query.where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), params.account);
 

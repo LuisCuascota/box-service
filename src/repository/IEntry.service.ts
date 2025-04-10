@@ -50,6 +50,7 @@ export interface EntryHeader {
   cash: number;
   transfer: number;
   status: string;
+  period_id: number;
 }
 
 export interface EntryAmountDetail {
@@ -66,16 +67,20 @@ export interface EntryPagination {
   startDate?: number;
   endDate?: number;
   paymentType?: string;
+  period?: number;
 }
 
 export interface Contribution {
   date: string;
   number: number;
   value: number;
+  type_id: number;
 }
 export interface EntryBillDetail {
   cash: number;
   transfer: number;
+  period_id: number;
+  date: string;
 }
 
 export interface EntryDetail {
@@ -88,4 +93,5 @@ export interface CountFilter {
   startDate?: number;
   endDate?: number;
   paymentType?: string;
+  period?: number;
 }

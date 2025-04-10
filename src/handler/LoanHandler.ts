@@ -39,3 +39,10 @@ export const detail: Handler = (event) => {
     event
   );
 };
+
+export const update: Handler = (event) => {
+  return processResponse<boolean>(
+    loanService.updateLoan(JSON.parse(event.body)),
+    event
+  );
+};

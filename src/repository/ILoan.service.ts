@@ -9,6 +9,7 @@ export interface ILoanService {
   updateLoanDetail(details: LoanDetailToPay[]): Observable<boolean>;
   updateLoanHead(loanData: EntryLoanData): Observable<boolean>;
   postNewLoan(newLoan: LoanDefinition): Observable<boolean>;
+  updateLoan(newLoan: LoanDefinition): Observable<boolean>;
   searchLoan(params: LoanPagination): Observable<Loan[]>;
 }
 
@@ -18,6 +19,7 @@ export interface Loan {
   is_end: boolean;
   status: string;
   debt: number;
+  term: number;
 }
 
 export interface LoanDetail {
@@ -25,11 +27,16 @@ export interface LoanDetail {
   is_paid: boolean;
   fee_value: number;
   interest: number;
+  fee_number: number;
+  loan_number: number;
+  fee_total: number;
+  balance_after_pay: number;
 }
 
 export interface LoanDefinition {
   loan: Loan;
   loanDetails: LoanDetail[];
+  loanPayment?: LoanPayment;
 }
 
 export interface LoanDetailToPay {
@@ -58,4 +65,11 @@ export interface LoanCounter {
   [AliasEnum.COUNT]: number;
   [AliasEnum.TOTAL]: number;
   [AliasEnum.DEBT]: number;
+}
+
+export interface LoanPayment {
+  loan_number: number;
+  payment_date: string;
+  payment_amount: number;
+  old_debt: number;
 }

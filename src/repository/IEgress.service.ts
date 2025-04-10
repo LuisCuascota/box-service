@@ -31,6 +31,7 @@ export interface EgressHeader {
   cash: number;
   transfer: number;
   status: string;
+  period_id: number;
 }
 
 export interface EgressAmountDetail {
@@ -46,11 +47,14 @@ export interface EgressPagination {
   startDate?: number;
   endDate?: number;
   paymentType?: string;
+  period?: number;
 }
 
 export interface EgressBillDetail {
   cash: number;
   transfer: number;
+  period_id: number;
+  date: string;
 }
 
 export interface EgressDetail {
@@ -63,4 +67,5 @@ export interface EgressCountFilter {
   startDate?: number;
   endDate?: number;
   paymentType?: string;
+  period?: number;
 }

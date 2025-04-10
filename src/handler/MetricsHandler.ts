@@ -14,9 +14,15 @@ const metricsService = CONTAINER.get<IMetricsService>(
 );
 
 export const metrics: Handler = async (event) => {
-  return processResponse<Metrics>(metricsService.getMetrics(), event);
+  return processResponse<Metrics>(
+    metricsService.getMetrics(event.queryStringParameters),
+    event
+  );
 };
 
 export const types: Handler = (event) => {
-  return processResponse<TypeMetric[]>(metricsService.getTypesMetrics(), event);
+  return processResponse<TypeMetric[]>(
+    metricsService.getTypesMetrics(event.queryStringParameters),
+    event
+  );
 };

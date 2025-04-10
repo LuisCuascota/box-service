@@ -6,6 +6,7 @@ import { processResponse } from "../utils/Verifier.utils";
 import {
   IBalanceService,
   PartnerBalance,
+  Period,
 } from "../repository/IBalance.service";
 
 const balancesService = CONTAINER.get<IBalanceService>(
@@ -14,7 +15,11 @@ const balancesService = CONTAINER.get<IBalanceService>(
 
 export const balance: Handler = async (event) => {
   return processResponse<PartnerBalance[]>(
-    balancesService.getPartnerBalance(),
+    balancesService.getPartnerBalance(event.queryStringParameters),
     event
   );
+};
+
+export const periodList: Handler = async (event) => {
+  return processResponse<Period[]>(balancesService.getPeriodList(), event);
 };

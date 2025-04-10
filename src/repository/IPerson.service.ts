@@ -27,6 +27,7 @@ export interface Person {
   creation_date: string;
   savingStatus: string;
   loanStatus: string;
+  loanCount: number;
 }
 
 export interface Account {
@@ -37,9 +38,9 @@ export interface Account {
 }
 
 export interface PersonPagination {
-  limit: number;
-  offset: number;
-  mode: ModePagination;
+  limit?: number;
+  offset?: number;
+  mode?: ModePagination;
 }
 
 export enum ModePagination {
