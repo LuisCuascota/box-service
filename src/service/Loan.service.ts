@@ -100,6 +100,7 @@ export class LoanService implements ILoanService {
           .select()
           .from({ l: TablesEnum.LOAN_DETAIL })
           .where(buildCol({ l: TColLoanDetail.LOAN_NUMBER }), loanNumber)
+          .where(buildCol({ l: TColLoanDetail.IS_DISABLED }), false)
           .orderBy(buildCol({ l: TColLoanDetail.FEE_NUMBER }))
           .toQuery()
       ),

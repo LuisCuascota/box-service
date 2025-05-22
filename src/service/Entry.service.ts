@@ -24,6 +24,8 @@ import {
   TColEntry,
   TColEntryBillDetail,
   TColEntryType,
+  TColLoan,
+  TColLoanDetail,
   TColPerson,
 } from "../infraestructure/Tables.enum";
 import { tag } from "rxjs-spy/operators";
@@ -40,6 +42,7 @@ import {
   EntryType,
   IEntryService,
   NewEntry,
+  EntryLoanDetail,
 } from "../repository/IEntry.service";
 import {
   calculateContributionAmount,
@@ -211,30 +214,24 @@ export class EntryService implements IEntryService {
     );
   }
 
-  private _setEntryStatus = (
-    entryList: EntryHeader[]
-  ): Observable<EntryHeader[]> => {
-    return from(entryList).pipe(
-      concatMap(
-        (entry: EntryHeader) =>
-          updateEntryEgressStatus(entry) as Observable<EntryHeader>
-      ),
-      toArray()
-    );
-  };
-
   public getEntryDetail(number: number): Observable<EntryDetail> {
     return of(1).pipe(
       mergeMap(() =>
-        forkJoin([this._getAmountDetail(number), this._getBillDetail(number)])
+        forkJoin([
+          this._getAmountDetail(number),
+          this._getBillDetail(number),
+          this._getEntryLoanDetail(number),
+        ])
       ),
       map(
-        ([amountDetail, billDetail]: [
+        ([amountDetail, billDetail, entryLoanDetail]: [
           EntryAmountDetail[],
           EntryBillDetail,
+          EntryLoanDetail | undefined,
         ]) => ({
           billDetail,
           amountDetail,
+          entryLoanDetail,
         })
       ),
       tag("EntryService | getEntryDetail")
@@ -248,6 +245,18 @@ export class EntryService implements IEntryService {
       tag("EntryService | getContributionList")
     );
   }
+
+  private _setEntryStatus = (
+    entryList: EntryHeader[]
+  ): Observable<EntryHeader[]> => {
+    return from(entryList).pipe(
+      concatMap(
+        (entry: EntryHeader) =>
+          updateEntryEgressStatus(entry) as Observable<EntryHeader>
+      ),
+      toArray()
+    );
+  };
 
   private _buildEntryFilters(
     query: QueryBuilder,
@@ -338,6 +347,42 @@ export class EntryService implements IEntryService {
       ),
       mergeMap((query: string) => this._mysql.query<EntryBillDetail>(query)),
       map((response: EntryBillDetail[]) => response[0]),
+      tag("EntryService | _getBillDetail")
+    );
+  }
+
+  private _getEntryLoanDetail(
+    number: number
+  ): Observable<EntryLoanDetail | undefined> {
+    return of(1).pipe(
+      mergeMap(() =>
+        of(
+          this._knex
+            .select(
+              buildCol({ l: TColLoan.NUMBER }),
+              buildCol({ l: TColLoan.TERM }),
+              buildCol({ l: TColLoan.VALUE }),
+              buildCol({ ld: TColLoanDetail.FEE_NUMBER }),
+              buildCol({ ld: TColLoanDetail.FEE_VALUE }),
+              buildCol({ ld: TColLoanDetail.INTEREST }),
+              buildCol({ ld: TColLoanDetail.FEE_TOTAL }),
+              buildCol({ ld: TColLoanDetail.BALANCE_AFTER_PAY })
+            )
+            .from({ l: TablesEnum.LOAN })
+            .innerJoin(
+              { ld: TablesEnum.LOAN_DETAIL },
+              buildCol({ l: TColLoan.NUMBER }),
+              buildCol({ ld: TColLoanDetail.LOAN_NUMBER })
+            )
+            .where(buildCol({ ld: TColLoanDetail.ENTRY_NUMBER }), number)
+            .orderBy(buildCol({ ld: TColLoanDetail.FEE_NUMBER }), "desc")
+            .toQuery()
+        )
+      ),
+      mergeMap((query: string) => this._mysql.query<EntryLoanDetail>(query)),
+      map((response: EntryLoanDetail[]) =>
+        response.length > 0 ? response[0] : undefined
+      ),
       tag("EntryService | _getBillDetail")
     );
   }
