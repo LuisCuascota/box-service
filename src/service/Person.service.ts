@@ -79,6 +79,7 @@ export class PersonService implements IPersonService {
         if (params && params.mode && params.mode === ModePagination.ACTIVE_ONLY)
           query.where(buildCol({ a: TColAccount.IS_DISABLED }), false);
 
+        query.orderBy(buildCol({ a: TColAccount.IS_DISABLED }));
         query.orderBy(buildCol({ a: TColAccount.NUMBER }));
 
         if (params && params.limit && params.offset)
