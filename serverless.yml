@@ -1,15 +1,34 @@
 org: santiagocuascota
 app: box-service
 service: box-service
-frameworkVersion: "3"
+frameworkVersion: "4"
 
 plugins:
   - serverless-offline
-  - serverless-plugin-typescript
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node24
+    platform: node
+    external:
+      - better-sqlite3
+      - mysql2
+      - tedious
+      - oracledb
+      - sqlite3
+      - pg
+      - pg-query-stream
+
+custom:
+  runtimeByStage:
+    local: nodejs20.x
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: ${self:custom.runtimeByStage.${sls:stage}, 'nodejs24.x'}
   timeout: 30
   vpc:
     securityGroupIds:

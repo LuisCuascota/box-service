@@ -1,4 +1,4 @@
-import { Contribution, EntryHeader } from "../repository/IEntry.service";
+import { EntryHeader } from "../repository/IEntry.service";
 import { map, mergeMap, Observable, of } from "rxjs";
 import {
   AccountStatusEnum,
@@ -15,9 +15,7 @@ import {
   TColDetail,
   TColEntry,
 } from "../infraestructure/Tables.enum";
-import { tag } from "rxjs-spy/cjs/operators";
 import { Knex } from "knex";
-import { IMySQLGateway } from "../repository/IMySQL.gateway";
 
 export const updateEntryEgressStatus = (
   entry: EntryHeader | EgressHeader
