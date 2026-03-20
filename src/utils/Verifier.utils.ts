@@ -1,7 +1,7 @@
 import { Observable } from "rxjs";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 
-const verifier = CognitoJwtVerifier.create({
+const _verifier = CognitoJwtVerifier.create({
   userPoolId: "us-east-1_ikjEs7iIA",
   tokenUse: "access",
   clientId: "3mvj4vkukmiu27i8e1smp3eauc",
@@ -18,7 +18,7 @@ const isAuthJwt = async (event: any) => {
     if (token) return true;
 
     return false;
-  } catch (error: any) {
+  } catch (_error: any) {
     return false;
   }
 };
