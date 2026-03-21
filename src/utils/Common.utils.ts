@@ -16,6 +16,7 @@ import {
   TColEntry,
 } from "../infraestructure/Tables.enum";
 import { Knex } from "knex";
+import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 
 export const updateEntryEgressStatus = (
   entry: EntryHeader | EgressHeader
@@ -101,7 +102,15 @@ export const getContributionListQuery = (
               buildCol({ d: TColDetail.ENTRY_NUMBER })
             )
           )
-          .whereIn(buildCol({ d: TColDetail.TYPE_ID }), types ? types : [8, 11])
+          .whereIn(
+            buildCol({ d: TColDetail.TYPE_ID }),
+            types
+              ? types
+              : [
+                  EntryTypesIdEnum.CONTRIBUTION,
+                  EntryTypesIdEnum.SAVINGS_DEPOSIT,
+                ]
+          )
           .where(buildCol({ e: TColEntry.ACCOUNT_NUMBER }), account)
           .toQuery()
       )

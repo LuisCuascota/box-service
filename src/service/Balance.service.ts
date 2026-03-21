@@ -26,6 +26,7 @@ import {
   TColPeriod,
   TColPeriodAccount,
 } from "../infraestructure/Tables.enum";
+import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import moment from "moment/moment";
 import QueryBuilder = Knex.QueryBuilder;
 
@@ -122,7 +123,10 @@ export class BalanceService implements IBalanceService {
             buildCol({ e: TColEntry.NUMBER }),
             buildCol({ d: TColDetail.ENTRY_NUMBER })
           )
-          .whereIn(buildCol({ d: TColDetail.TYPE_ID }), [8, 11])
+          .whereIn(buildCol({ d: TColDetail.TYPE_ID }), [
+            EntryTypesIdEnum.CONTRIBUTION,
+            EntryTypesIdEnum.SAVINGS_DEPOSIT,
+          ])
           .where(buildCol({ e: TColEntry.PERIOD }), period.id)
       ),
       map((query: QueryBuilder) => {

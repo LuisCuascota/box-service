@@ -36,6 +36,7 @@ import {
 import moment from "moment";
 import QueryBuilder = Knex.QueryBuilder;
 import { ILoanService, Loan } from "../repository/ILoan.service";
+import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 
 @injectable()
 export class PersonService implements IPersonService {
@@ -244,7 +245,7 @@ export class PersonService implements IPersonService {
     return of(1).pipe(
       mergeMap(() => updateSavingStatus(person)),
       mergeMap(() =>
-        getContributionListQuery(this._knex, person.number!, [11])
+        getContributionListQuery(this._knex, person.number!, [EntryTypesIdEnum.SAVINGS_DEPOSIT])
       ),
       mergeMap((query: string) => this._mysql.query<Contribution>(query)),
       map((contributionList: Contribution[]) => {
