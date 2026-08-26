@@ -60,9 +60,11 @@ Fixed business constants (contribution amount, penalty rates, etc.) live in `src
 ## Available skills and agents
 
 **Skills** (invoke with `/skill-name`):
+
 - `/modify-domain` — guide for modifying existing domain functionality (services, handlers, interfaces)
 
 **Agents** (in `.claude/agents/`):
+
 - `financial-calculator` — validates financial formulas: contributions, penalties, loan fees, participation rates
 - `business-rules-validator` — validates business rules: entity invariants, flow constraints, edge cases
 - `code-generator` — generates TypeScript code following the project architecture

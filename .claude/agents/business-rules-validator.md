@@ -8,6 +8,7 @@ Eres un agente especializado en validar que el código del sistema **Cepo de Oro
 ## Entidades y sus invariantes
 
 ### Socio (Person + Account)
+
 - Un socio tiene exactamente **un** registro `Person` y **un** registro `Account`
 - El borrado es **lógico**: `Account.is_disabled = true` — nunca se elimina el registro
 - `start_amount` es el monto con el que ingresó el socio y **nunca cambia**
@@ -15,12 +16,14 @@ Eres un agente especializado en validar que el código del sistema **Cepo de Oro
 - Un socio deshabilitado no aparece en balances ni en la lista activa
 
 ### Préstamos (Loan)
+
 - Un socio puede tener **un único préstamo activo** (`is_end = false`, `enabled = true`) a la vez
 - `is_end = true` → préstamo pagado en su totalidad
 - `enabled = false` → borrado lógico del préstamo (no aparece en búsquedas)
 - Un préstamo no puede ser `is_end = true` y `enabled = false` simultáneamente en un flujo normal
 
 ### Estados de préstamo
+
 ```
 PAID    → is_end = true
 LATE    → is_end = false + tiene LoanDetail con is_paid=false y payment_date <= hoy
@@ -28,6 +31,7 @@ CURRENT → is_end = false + todos los LoanDetail vencidos están pagados
 ```
 
 ### Estado del socio respecto a préstamos (`loanStatus`)
+
 ```
 "late"  → al menos un préstamo en estado LATE
 "debt"  → tiene préstamo activo CURRENT (al día)
@@ -35,12 +39,14 @@ CURRENT → is_end = false + todos los LoanDetail vencidos están pagados
 ```
 
 ### Estado del socio respecto a aportaciones (`savingStatus`)
+
 ```
 "late" → pendingContributions > 0
 "ok"   → pendingContributions <= 0
 ```
 
 ### Cuotas de préstamo (LoanDetail)
+
 - Una cuota está **deshabilitada** cuando todos sus valores son 0: `fee_total=0, balance_after_pay=0, interest=0, fee_value=0`
 - Las cuotas deshabilitadas no se muestran (`is_disabled = true`) ni se cobran
 - `is_paid = true` se marca cuando se registra el pago vía `postNewEntry`
@@ -48,12 +54,19 @@ CURRENT → is_end = false + todos los LoanDetail vencidos están pagados
 ## Flujos críticos y sus reglas
 
 ### Registrar ingreso (`postNewEntry`)
+
 1. Siempre genera un `Entry` (cabecera) + `Entry_detail` (líneas por tipo) + `Entry_bill_detail` (forma de pago)
 2. Si incluye `CONTRIBUTION` o `SAVINGS_DEPOSIT` → debe actualizar `Account.current_saving`
-3. Si incluye pago de cuota de préstamo (`entryLoanData`) → debe marcar cuotas como pagadas y actualizar `Loan.debt`
-4. El total del `Entry.amount` debe ser la suma de todos los `Entry_detail.value`
+3. Si incluye pago de cuota de préstamo (`entryLoanData`) → debe validar antes de procesar:
+   - Las cuotas referenciadas en `loanDetailToPay` no deben estar ya pagadas (`is_paid = false`)
+   - La suma de `feeValue` de `loanDetailToPay[]` debe coincidir con el `value` del tipo 3 (capital)
+   - La suma de `interest` (desde DB) de las cuotas referenciadas debe coincidir con el `value` del tipo 4 (interés)
+   - La multa (tipo 5) NO se valida en monto — el operador puede cobrar cualquier valor >= 0
+4. Tras validar, debe marcar cuotas como pagadas y actualizar `Loan.debt`
+5. El total del `Entry.amount` debe ser la suma de todos los `Entry_detail.value`
 
 ### Abono al capital (`updateLoan`)
+
 - Recalcula el cuadro de amortización completo
 - Actualiza `Loan.term` y `Loan.debt`
 - Las cuotas viejas se reemplazan (se deshabilitan las que quedan en 0)
@@ -61,10 +74,12 @@ CURRENT → is_end = false + todos los LoanDetail vencidos están pagados
 - **No** genera un `Entry` — no es un ingreso contable al fondo
 
 ### Registro de nuevo préstamo (`postNewLoan`)
+
 - Verifica que el socio no tenga préstamo activo antes de crear uno nuevo
 - Crea `Loan` (cabecera) + todos los `LoanDetail` (cuadro de amortización)
 
 ### Egreso (`postNewEgress`)
+
 - El `type_id` referencia `Entry_type` — indica de qué fondo sale el dinero
 - Genera `Discharge` + `Discharge_detail` + `Discharge_bill_detail`
 
@@ -81,6 +96,7 @@ CASH     → cash > 0, transfer = 0
 TRANSFER → transfer > 0, cash = 0
 MIXED    → cash > 0 AND transfer > 0
 ```
+
 El estado se deriva de los valores, **no se almacena directamente** — se calcula en `updateEntryEgressStatus`.
 
 ## Reglas de multas
@@ -89,11 +105,12 @@ El estado se deriva de los valores, **no se almacena directamente** — se calcu
 - Con 1 atraso: mora solo si ya pasó el primer sábado
 - Con 2+ atrasos: mora = (pendientes - 1) × $1, independiente del día
 - Socios nuevos (`current_saving === 0`): no pagan mora, pagan Fondo de Administración
-- La mora de préstamo es 10% del `fee_value` por cada cuota vencida
+- La mora de préstamo es 10% del `fee_value` por cada cuota vencida (valor sugerido; el operador puede cobrar cualquier monto >= 0)
 
 ## Cómo validar
 
 Cuando revises código o una propuesta:
+
 1. Identifica qué entidades y flujos están involucrados
 2. Verifica cada invariante de las entidades afectadas
 3. Revisa los casos borde: socio nuevo vs existente, préstamo activo vs sin préstamo, primer sábado del mes

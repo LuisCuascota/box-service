@@ -192,6 +192,34 @@ export class PersonService implements IPersonService {
     );
   }
 
+  public getPersonByAccount(account: number): Observable<Person> {
+    return of(1).pipe(
+      map(() =>
+        this._knex
+          .select(
+            buildCol({ a: TColAccount.NUMBER }),
+            buildCol({ a: TColAccount.CURRENT_SAVING }),
+            buildCol({ a: TColAccount.CREATION_DATE }),
+            buildCol({ a: TColAccount.START_AMOUNT }),
+            buildCol({ p: TColPerson.NAMES }),
+            buildCol({ p: TColPerson.SURNAMES })
+          )
+          .from({ a: TablesEnum.ACCOUNT })
+          .innerJoin(
+            { p: TablesEnum.PERSON },
+            buildCol({ a: TColAccount.DNI }),
+            buildCol({ p: TColPerson.DNI })
+          )
+          .where(buildCol({ a: TColAccount.NUMBER }), account)
+          .toQuery()
+      ),
+      mergeMap((query: string) => this._mysql.query<Person>(query)),
+      map((response: Person[]) => response[0]),
+      mergeMap((person: Person) => this._updateSavingStatus(person)),
+      tag("PersonService | getPersonByAccount")
+    );
+  }
+
   public updateAccountSaving(
     account: number,
     currentSaving: number,
@@ -245,7 +273,9 @@ export class PersonService implements IPersonService {
     return of(1).pipe(
       mergeMap(() => updateSavingStatus(person)),
       mergeMap(() =>
-        getContributionListQuery(this._knex, person.number!, [EntryTypesIdEnum.SAVINGS_DEPOSIT])
+        getContributionListQuery(this._knex, person.number!, [
+          EntryTypesIdEnum.SAVINGS_DEPOSIT,
+        ])
       ),
       mergeMap((query: string) => this._mysql.query<Contribution>(query)),
       map((contributionList: Contribution[]) => {

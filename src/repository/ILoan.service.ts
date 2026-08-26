@@ -23,6 +23,7 @@ export interface Loan {
 }
 
 export interface LoanDetail {
+  id: number;
   payment_date: string;
   is_paid: boolean;
   fee_value: number;

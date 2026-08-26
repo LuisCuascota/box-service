@@ -7,6 +7,7 @@ export interface IPersonService {
   updatePerson(dni: string, person: Person): Observable<boolean>;
   deletePerson(account: number): Observable<boolean>;
   getAccount(account: number): Observable<Account>;
+  getPersonByAccount(account: number): Observable<Person>;
   updateAccountSaving(
     account: number,
     currentSaving: number,

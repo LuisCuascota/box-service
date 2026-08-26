@@ -12,6 +12,16 @@ export interface IEntryService {
   getContributionList(account: number): Observable<Contribution[]>;
 }
 
+export interface PartnerDefinition {
+  names: string;
+  surnames: string;
+  accountNumber: number;
+  creationDate: string;
+  currentSaving: number;
+  savingStatus: string;
+  pendingContributions: number;
+}
+
 export interface EntryCounter {
   [AliasEnum.COUNT]: number;
   [AliasEnum.CASH]: number;
@@ -31,7 +41,7 @@ export interface EntryType {
 export interface EntryAmount {
   id: number;
   value: number;
-  amountDefinition?: LoanDefinition;
+  amountDefinition?: LoanDefinition | PartnerDefinition;
 }
 
 export interface NewEntry {

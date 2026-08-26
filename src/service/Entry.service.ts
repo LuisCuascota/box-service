@@ -47,13 +47,15 @@ import {
 import {
   calculateContributionAmount,
   calculateLoanAmount,
+  getContributionsToPay,
+  validateLoanEntry,
 } from "../utils/Entry.utils";
 import { ILoanService, Loan, LoanDetail } from "../repository/ILoan.service";
 import {
   getContributionListQuery,
   updateEntryEgressStatus,
 } from "../utils/Common.utils";
-import { Account, IPersonService } from "../repository/IPerson.service";
+import { Account, IPersonService, Person } from "../repository/IPerson.service";
 import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 import { EntryBillTypeEnum } from "../infraestructure/RegistryStatusEnum";
 import QueryBuilder = Knex.QueryBuilder;
@@ -469,8 +471,33 @@ export class EntryService implements IEntryService {
     account: number
   ): Observable<EntryAmount[]> {
     return of(1).pipe(
-      mergeMap(() => this._personService.getAccount(account)),
-      map((account: Account) => calculateContributionAmount(account)),
+      mergeMap(() =>
+        forkJoin([
+          this._personService.getAccount(account),
+          this._personService.getPersonByAccount(account),
+        ])
+      ),
+      map(([accountData, person]: [Account, Person]) => {
+        const amounts = calculateContributionAmount(accountData);
+
+        const contribution = amounts.find(
+          (a) => a.id === EntryTypesIdEnum.CONTRIBUTION
+        );
+
+        if (contribution) {
+          contribution.amountDefinition = {
+            names: person.names,
+            surnames: person.surnames,
+            accountNumber: person.number!,
+            creationDate: person.creation_date,
+            currentSaving: person.current_saving,
+            savingStatus: person.savingStatus,
+            pendingContributions: getContributionsToPay(accountData),
+          };
+        }
+
+        return amounts;
+      }),
       tag("EntryService | _calculateContributionAmount")
     );
   }
@@ -500,6 +527,24 @@ export class EntryService implements IEntryService {
         )
       ),
       tag("EntryService | _calculateIfLoanExist")
+    );
+  }
+
+  private _validateLoanEntry(newEntry: NewEntry): Observable<boolean> {
+    return of(1).pipe(
+      mergeMap(() =>
+        this._loanService.getLoanDetail(newEntry.entryLoanData!.loanNumber)
+      ),
+      map((loanDetails: LoanDetail[]) => {
+        validateLoanEntry(
+          newEntry.detail,
+          newEntry.entryLoanData!,
+          loanDetails
+        );
+
+        return true;
+      }),
+      tag("EntryService | _validateLoanEntry")
     );
   }
 }

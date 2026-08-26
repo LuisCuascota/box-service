@@ -24,6 +24,7 @@ HTTP → Handler → Service (DI) → MySQLGateway → DB
 ## Capas y sus responsabilidades
 
 ### Handler (`src/handler/<Name>Handler.ts`)
+
 - Primera línea siempre: `import "reflect-metadata";`
 - Instancia el servicio **fuera** de los handlers (nivel de módulo)
 - Cada handler solo llama `processResponse<T>(observable, event)` — sin lógica
@@ -40,21 +41,27 @@ import { processResponse } from "../utils/Verifier.utils";
 const xxxService = CONTAINER.get<IXxxService>(IDENTIFIERS.XxxService);
 
 export const find: Handler = (event) =>
-  processResponse<Xxx[]>(xxxService.searchXxx(event.queryStringParameters), event);
+  processResponse<Xxx[]>(
+    xxxService.searchXxx(event.queryStringParameters),
+    event
+  );
 ```
 
 ### Interface (`src/repository/IXxx.service.ts`)
+
 - Define el contrato del servicio y todos los tipos del dominio
 - Todos los métodos retornan `Observable<T>`
 - Parámetros opcionales con `?`
 
 ### Service (`src/service/Xxx.service.ts`)
+
 - `@injectable()` sobre la clase
 - Dependencias recibidas en constructor con `@inject(IDENTIFIERS.X)`
 - `private readonly _knex: Knex = knex({ client: "mysql" });`
 - Todo método público e privado termina con `tag("XxxService | methodName")`
 
 ### Gateway (`src/gateway/MySQL.gateway.ts`)
+
 - No modificar — es la única pieza de infraestructura de DB
 - Firma: `query<T>(query: string): Observable<T[]>`
 
@@ -78,22 +85,22 @@ public methodName(param: Type): Observable<ReturnType> {
 
 ## Operadores RxJS — cuándo usar cada uno
 
-| Situación | Operador |
-|---|---|
-| Arrancar cualquier método | `of(1).pipe(...)` |
-| Operación async secuencial | `mergeMap` |
-| Transformación síncrona | `map` |
-| Dos queries independientes en paralelo | `forkJoin([obs1, obs2])` |
-| Lógica condicional | `iif(() => condition, obs1, obs2)` |
-| Iterar array preservando orden | `concatMap` + `toArray()` |
-| Dispersar array en el pipe | `switchMap(() => from(array))` |
-| Esperar el último elemento de un array | `last()` |
+| Situación                              | Operador                           |
+| -------------------------------------- | ---------------------------------- |
+| Arrancar cualquier método              | `of(1).pipe(...)`                  |
+| Operación async secuencial             | `mergeMap`                         |
+| Transformación síncrona                | `map`                              |
+| Dos queries independientes en paralelo | `forkJoin([obs1, obs2])`           |
+| Lógica condicional                     | `iif(() => condition, obs1, obs2)` |
+| Iterar array preservando orden         | `concatMap` + `toArray()`          |
+| Dispersar array en el pipe             | `switchMap(() => from(array))`     |
+| Esperar el último elemento de un array | `last()`                           |
 
 ## buildCol y enums de columnas
 
 ```typescript
-buildCol({ alias: TColXxx.FIELD })          // → "alias.field"
-buildCol({ alias: TColXxx.FIELD }, "name")  // → "alias.field as name"
+buildCol({ alias: TColXxx.FIELD }); // → "alias.field"
+buildCol({ alias: TColXxx.FIELD }, "name"); // → "alias.field as name"
 ```
 
 Siempre usar `buildCol` + alias de tabla para referencias de columna. Nunca strings crudos de columnas.

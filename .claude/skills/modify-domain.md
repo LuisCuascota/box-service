@@ -10,6 +10,7 @@ siguiendo exactamente las convenciones del proyecto.
 ```
 
 Ejemplos:
+
 - `/modify-domain agregar filtro por fecha en searchEntry`
 - `/modify-domain nuevo método getLoanSummary en LoanService`
 - `/modify-domain agregar campo phone al response de getPersons`
@@ -94,16 +95,16 @@ export const newEndpoint: Handler = (event) => {
 Y mostrar el bloque YAML correspondiente (no escribir en `serverless.yml`):
 
 ```yaml
-  getNewEndpoint:
-    handler: src/handler/<Name>Handler.newEndpoint
-    events:
-      - http:
-          path: api/v1/<name>/<sub-path>
-          method: GET
-          cors:
-            origin: "*"
-            headers:
-              - Authorization
+getNewEndpoint:
+  handler: src/handler/<Name>Handler.newEndpoint
+  events:
+    - http:
+        path: api/v1/<name>/<sub-path>
+        method: GET
+        cors:
+          origin: "*"
+          headers:
+            - Authorization
 ```
 
 ---
@@ -114,16 +115,16 @@ Y mostrar el bloque YAML correspondiente (no escribir en `serverless.yml`):
 
 ```typescript
 // Antes
-this._knex.select("*").from({ e: TablesEnum.ENTRY })
+this._knex.select("*").from({ e: TablesEnum.ENTRY });
 
 // Después: usar buildCol con alias de tabla
 this._knex
   .select(
     buildCol({ e: TColEntry.NUMBER }),
     buildCol({ e: TColEntry.DATE }),
-    buildCol({ p: TColPerson.NAMES }),   // columna nueva
+    buildCol({ p: TColPerson.NAMES }) // columna nueva
   )
-  .from({ e: TablesEnum.ENTRY })
+  .from({ e: TablesEnum.ENTRY });
 ```
 
 ### Agregar un JOIN
@@ -178,7 +179,7 @@ map((query: QueryBuilder) => {
 // En src/repository/I<Name>.service.ts
 export interface NombreInterface {
   existingField: string;
-  newField?: string;   // opcional si no siempre viene de DB
+  newField?: string; // opcional si no siempre viene de DB
 }
 ```
 
@@ -187,7 +188,7 @@ export interface NombreInterface {
 ```typescript
 export interface NameParams {
   existingParam?: number;
-  newFilter?: string;   // agregar aquí
+  newFilter?: string; // agregar aquí
 }
 ```
 
@@ -197,15 +198,15 @@ Luego actualizar el método del servicio que recibe el parámetro para usar el n
 
 ## Operadores RxJS: cuándo usar cada uno
 
-| Situación | Operador | Ejemplo |
-|---|---|---|
-| Operación async secuencial (una tras otra) | `mergeMap` | gateway query → transformación |
-| Iteración preservando orden | `concatMap` + `toArray()` | procesar lista de items |
-| Operaciones en paralelo | `forkJoin([...])` | dos queries independientes |
-| Lógica condicional en el pipe | `iif(() => condition, obs1, obs2)` | si existe loan, calcular; si no, `of([])` |
-| Iterar un array dentro del pipe | `switchMap(() => from(array))` | dispersar items para procesarlos |
-| Transformación síncrona | `map` | extraer campo, formatear |
-| Valor inicial del pipe | `of(1).pipe(...)` | arrancar cualquier método |
+| Situación                                  | Operador                           | Ejemplo                                   |
+| ------------------------------------------ | ---------------------------------- | ----------------------------------------- |
+| Operación async secuencial (una tras otra) | `mergeMap`                         | gateway query → transformación            |
+| Iteración preservando orden                | `concatMap` + `toArray()`          | procesar lista de items                   |
+| Operaciones en paralelo                    | `forkJoin([...])`                  | dos queries independientes                |
+| Lógica condicional en el pipe              | `iif(() => condition, obs1, obs2)` | si existe loan, calcular; si no, `of([])` |
+| Iterar un array dentro del pipe            | `switchMap(() => from(array))`     | dispersar items para procesarlos          |
+| Transformación síncrona                    | `map`                              | extraer campo, formatear                  |
+| Valor inicial del pipe                     | `of(1).pipe(...)`                  | arrancar cualquier método                 |
 
 **Nunca usar `async/await` ni `Promise` — todo es Observable.**
 
@@ -214,25 +215,29 @@ Luego actualizar el método del servicio que recibe el parámetro para usar el n
 ## Reglas invariables (no negociables)
 
 1. **`tag(...)` siempre al final** de cada método público y privado que retorne Observable
+
    ```typescript
-   tag("ServiceName | methodName")
+   tag("ServiceName | methodName");
    ```
 
 2. **Knex para todo SQL** — nunca strings crudos salvo `this._knex.raw("?", [value])` para valores
+
    ```typescript
    // ✓ correcto
    this._knex.select().from(TablesEnum.X).where("id", id).toQuery()
    // ✗ prohibido
-   `SELECT * FROM X WHERE id = ${id}`
+   `SELECT * FROM X WHERE id = ${id}`;
    ```
 
 3. **`buildCol` para referencias de columna con alias de tabla**
+
    ```typescript
-   buildCol({ alias: TColEnum.FIELD })         // → "alias.field"
-   buildCol({ alias: TColEnum.FIELD }, "name") // → "alias.field as name"
+   buildCol({ alias: TColEnum.FIELD }); // → "alias.field"
+   buildCol({ alias: TColEnum.FIELD }, "name"); // → "alias.field as name"
    ```
 
 4. **Handlers siempre delgados** — solo llaman `processResponse<T>(observable, event)`:
+
    ```typescript
    // ✓ correcto
    export const find: Handler = (event) =>
@@ -246,6 +251,7 @@ Luego actualizar el método del servicio que recibe el parámetro para usar el n
    ```
 
 5. **`reflect-metadata` como primera línea** en handlers
+
    ```typescript
    import "reflect-metadata";
    ```
