@@ -15,6 +15,7 @@ build:
     platform: node
     external:
       - better-sqlite3
+      - mysql
       - mysql2
       - tedious
       - oracledb

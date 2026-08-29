@@ -32,7 +32,7 @@ import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
 export class BalanceService implements IBalanceService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
   private readonly _personService: IPersonService;
 

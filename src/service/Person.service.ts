@@ -40,7 +40,7 @@ import { EntryTypesIdEnum } from "../infraestructure/entryTypes.enum";
 
 @injectable()
 export class PersonService implements IPersonService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
   private readonly _loanService: ILoanService;
 

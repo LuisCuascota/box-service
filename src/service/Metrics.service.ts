@@ -30,7 +30,7 @@ import { EntryType } from "../repository/IEntry.service";
 
 @injectable()
 export class MetricsService implements IMetricsService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
   private readonly _balanceService: IBalanceService;
 

@@ -62,7 +62,7 @@ import QueryBuilder = Knex.QueryBuilder;
 
 @injectable()
 export class EntryService implements IEntryService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
   private readonly _loanService: ILoanService;
   private readonly _personService: IPersonService;

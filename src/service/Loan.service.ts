@@ -45,7 +45,7 @@ import { isDisabledLoanFee } from "../utils/Common.utils";
 
 @injectable()
 export class LoanService implements ILoanService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
   constructor(@inject(IDENTIFIERS.MySQLGateway) mysql: IMySQLGateway) {
     this._mysql = mysql;

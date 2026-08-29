@@ -39,7 +39,7 @@ import { EntryBillTypeEnum } from "../infraestructure/RegistryStatusEnum";
 
 @injectable()
 export class EgressService implements IEgressService {
-  private readonly _knex: Knex = knex({ client: "mysql" });
+  private readonly _knex: Knex = knex({ client: "mysql2" });
   private readonly _mysql: IMySQLGateway;
 
   constructor(@inject(IDENTIFIERS.MySQLGateway) mysql: IMySQLGateway) {

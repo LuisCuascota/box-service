@@ -1,8 +1,8 @@
 import { injectable } from "inversify";
-import { finalize, from, Observable, of } from "rxjs";
+import { finalize, from, map, Observable, of } from "rxjs";
 import { mergeMap } from "rxjs/operators";
 import { IMySQLGateway } from "../repository/IMySQL.gateway";
-import { Connection, createConnection } from "promise-mysql";
+import { Connection, createConnection } from "mysql2/promise";
 import { DBConfigEnvDev } from "../environment/DBConfig.env.dev";
 
 @injectable()
@@ -29,7 +29,8 @@ export class MySQLGateway implements IMySQLGateway {
     query: string
   ): Observable<T[]> {
     return of(1).pipe(
-      mergeMap(() => connection.query<T[]>(query)),
+      mergeMap(() => connection.query(query)),
+      map(([rows]) => rows as T[]),
       finalize(() => connection.destroy())
     );
   }

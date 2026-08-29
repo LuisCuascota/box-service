@@ -37,7 +37,7 @@
     "inversify": "^7.11.0",
     "knex": "^3.1.0",
     "moment": "^2.30.1",
-    "promise-mysql": "^5.2.0",
+    "mysql2": "^3.24.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "rxjs-spy": "^8.0.2",

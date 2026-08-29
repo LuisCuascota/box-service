@@ -7,3 +7,5 @@ jspm_packages
 .build
 
 /.idea
+
+src/environment/DBConfig.env.dev.ts
